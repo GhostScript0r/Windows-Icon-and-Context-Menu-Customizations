@@ -1,9 +1,7 @@
 ﻿param(
     [switch]$RemoveCommonStartFolder,
     [switch]$UWPRefreshOnly,
-    [switch]$Win32GoogleRefreshOnly,
-    [switch]$CascadeSpotlight,
-    [switch]$UseSpotlightDesktopIcon
+    [switch]$Win32GoogleRefreshOnly
 )
 # Get admin privilege
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -11,7 +9,7 @@ $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Pri
 if(!($ScriptIsRunningOnAdmin)) {
 	Write-Host "The script $($PSCommandPath.Name) is NOT running with Admin privilege." -ForegroundColor Red -BackgroundColor White
     [string]$ScriptWithArgs="`"$($PSCommandPath)`""
-    foreach($Argument in @("RemoveCommonStartFolder","UWPRefreshOnly","Win32GoogleRefreshOnly","CascadeSpotlight","UseSpotlightDesktopIcon")) {
+    foreach($Argument in @("RemoveCommonStartFolder","UWPRefreshOnly","Win32GoogleRefreshOnly")) {
         if((Get-Variable "$($Argument)").value -eq $true) {
             $ScriptWithArgs=$ScriptWithArgs + " -$($Argument) "
         }
@@ -53,70 +51,8 @@ function RefreshGoogleDriveIcons {
         }
     }
 }
-function RegCopyPaste {
-    param(
-        [parameter(ParameterSetName='RegLoc', Mandatory=$true, Position=0)]
-        [string]$RegLoc,
-        [string]$Target,
-        [string[]]$Shell=@(),
-        [switch]$DefaultIcon
-    )
-    if($Shell.count -gt 0) {
-        $ShellLinks=[string[]]::new($Shell.count)
-        for($i=0; $i -lt $Shell.count;$i++) {
-            $ShellLinks[$i]="shell\$($Shell[$i])"
-        }
-        CreateKey "$($regloc)\shell"
-    }
-    if($DefaultIcon) {
-        $ShellLinks = $ShellLinks + @("DefaultIcon")
-    }
-    foreach($ShellKey in $ShellLinks) {
-        [string]$CopyDestination="Registry::$($RegLoc)"
-        if($ShellKey -like "shell\?*") {
-            $CopyDestination="$($CopyDestination)\shell"
-        }
-        Copy-Item -Path "Registry::$($Target)\$($ShellKey)" -Destination "$($CopyDestination)" -Force
-        if($ShellKey -like "shell\?*") {
-            Copy-Item -Path "Registry::$($Target)\$($ShellKey)\command" -Destination "$($CopyDestination -replace 'shell',$ShellKey)" -Force
-        }
-    }
-}
-function RefreshAppAfterUpdate {
-    param(
-        [parameter(ParameterSetName='Key', Mandatory=$true, Position=0)]
-        [string]$Key,
-        [string]$Shell,
-        [string]$AppLocation="",
-        [string]$TargetCommand="",
-        [string]$AppxHKCR="",
-        [switch]$IconOnly
-    )
-    $Key=(CorrectPath "$($Key)" -AddHKCR)
-    if($AppxHKCR.length -gt 0) {
-        $AppxHKCR=(CorrectPath "$($AppxHKCR)" -AddHKCR)
-    }
-    [string]$LastWrittenAppVer=(Get-ItemProperty -LiteralPath "$($Key)\shell\$($Shell)")."Icon" -replace "`"C","C" -replace "`",0",""
-    if($LastWrittenAppVer -notlike $AppLocation) {
-        Write-Host "App $($LastWrittenAppVer.substring($LastWrittenAppVer.LastIndexOf("\"),$LastWrittenAppVer.Length-4-$LastWrittenAppVer.LastIndexOf("\"))) was updated. Updating entries accordingly."
-        # Refresh Icon
-        Set-ItemProperty -Path "$($Key)\shell\$($Shell)" -Name "Icon" -Value "`"$($AppLocation)`",0"
-        # Refresh command
-        if(!($IconOnly) -and ($AppHKCR.length -gt 0)) {
-            Copy-Item -Path "$($AppHKCR)\shell\$($Shell)\Command" -Destination "$($Key)\shell\$($Shell)" -Force
-        }
-    }
-}
-function RemoveAMDContextMenu {
-    [string]$AMDcontextMenu="HKEY_CLASSES_ROOT\Directory\Background\shellex\ContextMenuHandlers\ACE"
-    if(Test-Path "Registry::$($AMDcontextMenu)") {
-        Remove-DefaultRegValue $AMDcontextMenu -ErrorAction SilentlyContinue
-        MakeReadOnly $AMDcontextMenu -InclAdmin
-    }
-}
 # ————————————————————————
 # Main part of the script. At the beginning are the parts needed to be regularly run.
-# ————————————————————————
 # -----------
 # Update the name of other drives shown in Windows Explorer to get drive size infos
 # —————————————————————
@@ -187,8 +123,12 @@ if(!(Test-Path "$($PaintIconLocation)")) {
 # > Find file location of Windows Terminal app and copy the profile icons out
 [string]$WTLocation="$($(Get-AppxPackage Microsoft.WindowsTerminal).InstallLocation)"
 [string]$PowerShellIconPNG="$($env:LocalAppdata)\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\ProfileIcons\{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.scale-200.png"
+[string]$TerminalIconICO="$($env:LocalAppdata)\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\terminal_contrast-white.ico"
 if(!(Test-Path "$($PowerShellIconPNG)")) {
     Copy-Item -Path "$($WTLocation)\ProfileIcons" -Destination "$($env:LocalAppdata)\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe" -Recurse
+}
+if(!(Test-Path "$($TerminalIconICO)")) {
+    Copy-Item -Path "$($WTLocation)\Images\terminal_contrast-white.ico" -Destination "$($env:LocalAppdata)\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe"
 }
 # > Find file location of WSL app and copy it
 [string]$WSLLocation="$((Get-AppxPackage MicrosoftCorporationII.WindowsSubsystemForLinux).InstallLocation)\wsl.exe"
@@ -223,10 +163,10 @@ if(Test-Path "$($WSALocation)") {
     MkDirCLSID "{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}" -Name "Android" -Icon "`"$($WSAIconLocation)`"" -FolderType 6 -IsShortcut
     [string]$StartWSAAppCommandPrefix="$($env:Localappdata)\Microsoft\WindowsApps\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\WsaClient.exe /launch wsa://"
     [string[]]$WSAContextMenu=@("open","cmd")
-    [string[]]$WSAContextMenuIcon=@("`"$($WSAIconLocation)`"","$($env:LOCALAPPDATA)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalState\com.termux.ico")
+    [string[]]$WSAContextMenuIcon=@("`"$($WSAIconLocation)`"","$($TerminalIconICO)")
     [string[]]$WSAContextMenuName=@("Mit Android-Dateibrowser ansehen","WSA ADB-Shell starten")
     [string[]]$WSAContextMenuCommand=@("$($StartWSAAppCommandPrefix)com.android.documentsui","wt.exe -p `"WSA ADB Shell`"")
-    [string[]]$ExtraApps=@("com.ghisler.android.TotalCommander","com.android.settings")
+    [string[]]$ExtraApps=@("com.android.settings") # "com.ghisler.android.TotalCommander",
     for($i=0;$i -lt $ExtraApps.count;$i++) {
         [string]$AppIconLoc = "$($env:LOCALAPPDATA)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalState\$(`
         $ExtraApps[$i]).ico"
@@ -238,9 +178,6 @@ if(Test-Path "$($WSALocation)") {
             $WSAContextMenuIcon = $WSAContextMenuIcon + @("$($AppIconLoc)")
             [string[]]$WSANameToAdd=switch($i) {
                 0 {
-                    @("In Total Commander browsen")
-                }
-                1 {
                     @("Android-Systemeinstellungen")
                 }
             }
@@ -740,7 +677,7 @@ if(Test-Path "Registry::HKCR\CheatEngine\DefaultIcon") {
 
 # --------VBE, VBS and JSE (JavaScript) Script--------
 if(Test-Path "C:\Windows\System32\wscript.exe") { # If VBS as a legacy component is not disabled yet.
-    CreateFileAssociation @("$($VSCodeVerHKCR).vb","VBSFile","VBEFile","JSEFile") `
+    CreateFileAssociation @("VBSFile","VBEFile","JSEFile") ` # "$($VSCodeVerHKCR).vb",
     -ShellOperations @("open","open2","print","edit") `
     -Icon @("wscript.exe,-1","cmd.exe,0","DDOres.dll,-2414","`"$($VSCodeLocation)`",0") `
     -MUIVerb @("@shell32.dll,-12710","@wshext.dll,-4511","","") `
@@ -749,7 +686,8 @@ if(Test-Path "C:\Windows\System32\wscript.exe") { # If VBS as a legacy component
     -Extended @(0,0,1,0) -LegacyDisable @(0,0,1,0)
 }
 # --------BAT, CMD, COM script-------
-CreateFileAssociation @("BATFile","CMDFile","COMFile") -ShellOperations @("open","print","edit","runas") -DefaultIcon "$($VSCodeIconsLoc)\shell.ico" -Icon @("cmd.exe,0","DDOres.dll,-2414","`"$($VSCodeLocation)`",0","cmd.exe,0") -MUIVerb @("@shell32.dll,-12710","","","") -Command @("","","`"$($VSCodeLocation)`" `"%1`"","") -Extended @(0,1,0,0) -LegacyDisable @(0,1,0,0)
+CreateFileAssociation @("BATFile","CMDFile","COMFile") -ShellOperations @("open","print","edit","runas") -DefaultIcon "cmd.exe,0" ` # "$($VSCodeIconsLoc)\shell.ico"
+-Icon @("cmd.exe,0","DDOres.dll,-2414","`"$($VSCodeLocation)`",0","cmd.exe,0") -MUIVerb @("@shell32.dll,-12710","","","") -Command @("","","`"$($VSCodeLocation)`" `"%1`"","") -Extended @(0,1,0,0) -LegacyDisable @(0,1,0,0)
 # --------Registry file--------
 CreateFileAssociation "regfile" -ShellOperations @("open","edit","print") `
     -Icon @("regedit.exe,0","`"$($VSCodeLocation)`",0","DDORes.dll,-2413") `
@@ -775,18 +713,14 @@ CreateFileAssociation @("xmlfile","$($VSCodeVerHKCR).xml") -FileAssoList ".xml" 
     -DelegateExecute @("{17FE9752-0B5A-4665-84CD-569794602F5C}","")
 Remove-Item "Registry::HKCR\xmlfile\ShellEx\IconHandler" -ErrorAction SilentlyContinue
 # ------- PS1 Script ------
-CreateFileAssociation @("Microsoft.PowerShellScript.1","$($VSCodeVerHKCR).ps1") `
-    -DefaultIcon "$($VSCodeIconsLoc)\powershell.ico"`
-    -ShellOperations @("open","edit","runas") `
-    -Icon @("scrptadm.dll,-7","`"$($VSCodeLocation)`",0","C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe,1") -MUIVerb @("@`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`",-108","","") `
-    -Command @("`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`"  `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`"","`"$($VSCodeLocation)`" `"%1`"","`"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`" `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`" -Verb RunAs")
+CreateFileAssociation @("Microsoft.PowerShellScript.1") -FileAssoList @("ps1")  -DefaultIcon "$($VSCodeIconsLoc)\powershell.ico" -ShellOperations @("open","edit","runas") -Icon @("scrptadm.dll,-7","`"$($VSCodeLocation)`",0","C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe,1") -MUIVerb @("@`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`",-108","","") -Command @("`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`"  `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`"","`"$($VSCodeLocation)`" `"%1`"","`"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`" `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`" -Verb RunAs")
 CreateFileAssociation "SystemFileAssociations\.ps1" -ShellOperations "Windows.PowerShell.Run" -LegacyDisable $true
 Remove-Item "Registry::HKCR\Microsoft.PowerShellScript.1\shell\0" -ErrorAction SilentlyContinue
 # ------- LOG File ------
 SetValue "HKCR\.log" -Name "Content Type" -Value "text/plain"
 SetValue "HKCR\.log" -Name "PerceivedType" -Value "text"
 # ------- Linux BASH -------
-CreateFileAssociation @("$($VSCodeVerHKCR).bash","$($VSCodeVerHKCR).sh") -ShellOperations @("open","edit") -Icon @("$($WSLIconLocation)","$($VSCodeLocation)") -Command @("wsl.exe bash `$(wslpath `"%1`")","`"$($VSCodeLocation)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","")
+CreateFileAssociation @("bashfile") -FileAssoList @("sh","bash") -ShellOperations @("open","edit") -Icon @("$($WSLIconLocation)","$($VSCodeLocation)") -Command @("wsl.exe bash `$(wslpath `"%1`")","`"$($VSCodeLocation)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","") -DefaultIcon "$($VSCodeIconsLoc)\shell.ico"
 # ------- PDF Document -------
 CreateFileAssociation "MSEdgePDF" -ShellOperations "open" -Icon "ieframe.dll,-31065" -MUIVerb "@ieframe.dll,-21819"
 # SumatraPDF related
@@ -915,7 +849,7 @@ CreateFileAssociation "pfxfile" -ShellOperations @("add","open") -Extended @(0,1
     -Icon @("certmgr.dll,-6169","certmgr.dll,-6169") -MUIVerb @("@cryptext.dll,-6126","") -ShellDefault "add"
 # INI /INF Config file
 CreateFileAssociation @("inifile","inffile") `
-    -FileAssoList @("forger2","conf") `
+    -FileAssoList @("forger2","conf","ini","inf") `
     -ShellOperations @("open","print") `
     -Command @("`"$($VSCodeLocation)`" `"%1`"","") `
     -MUIVerb @("@mshtml.dll,-2210","") `
@@ -1167,7 +1101,7 @@ CreateKey "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\Na
 if(Test-Path "Registry::HKCR\CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}") {
     [string]$DistroName=(GetDefaultWSL)
     MkDirCLSID "{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -Name "$($DistroName)" -Pinned 0 -TargetPath "\\wsl.localhost\$($DistroName)" -Icon "$($WSLIconLocation)" -MkInHKLM -FolderType 6
-    CreateFileAssociation "CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ShellOperations "open2" -Icon "$($env:LocalAppdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalState\com.termux.ico" -Command "wt.exe -p Ubuntu"
+    CreateFileAssociation "CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ShellOperations "open2" -Icon "$($TerminalIconICO)" -Command "wt.exe -p Ubuntu"
     # Remove "Linux" Entry from desktop
     Remove-Item -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ErrorAction SilentlyContinue
 }
