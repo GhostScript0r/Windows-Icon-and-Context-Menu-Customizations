@@ -145,7 +145,7 @@ function MkDirCLSID {
         [string]$Icon="",
         [string]$TargetPath="",
         [string]$InfoTip="",
-        [int]$FolderType=3, # 3 - Folder ; 9 - Network ; 0x16 Others
+        [int]$FolderType=3, # 3 - Folder ; 6 - Devices ; 9 - Network ; 0x16 Others
         [bool]$Pinned=$true,
         [int]$Sorting=0x42,
         <#  SortOrderIndex
@@ -158,11 +158,17 @@ function MkDirCLSID {
         [switch]$MkInHKLM, # Create CLSID and add to Namespace in HKLM instead of HKCU
         [int]$FolderValueFlags=0x28,
         [switch]$DoNotAddToNameSpace, # No Adding to Explorer\MyComputer Namespace
-        [switch]$IsShortcut # the target is a shortcut to a command, which has different structure to folders
+        [switch]$IsShortcut, # the target is a shortcut to a command, which has different structure to folders
+        [switch]$RemoveCLSID
     )
     [string]$RegRoot="HKCU"
     if($MkInHKLM) {
         $RegRoot="HKLM"
+    }
+    if($RemoveCLSID) {
+        Remove-Item "Registry::$($RegRoot)\Software\Classes\CLSID\$($GUID)" -Force -Recurse -ErrorAction SilentlyContinue
+        Remove-Item "Registry::$($RegRoot)\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($GUID)" -Force -Recurse -ErrorAction SilentlyContinue
+        return
     }
     CreateKey "$($RegRoot)\Software\Classes\CLSID\$($GUID)" -StandardValue "$($Name)"
     SetValue "$($RegRoot)\Software\Classes\CLSID\$($GUID)" -Name "DescriptionID" -Type 4 -Value $FolderType

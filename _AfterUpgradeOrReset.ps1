@@ -18,6 +18,7 @@ else {
 if($OOBE) {
     powershell.exe -File "$($PSScriptRoot)\InstallProrgamsWithWinget.ps1"
     powershell.exe -File "$($PSScriptRoot)\AppData_Symlink.ps1"
+    powershell.exe -File "$($PSScriptRoot)\CreateShortcutIcon.ps1"
 }
 if(Test-Path "$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs (1)") {
     Remove-Item -Recurse -Force "$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs (1)"

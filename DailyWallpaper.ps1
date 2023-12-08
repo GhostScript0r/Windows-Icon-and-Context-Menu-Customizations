@@ -21,8 +21,8 @@ while(!($?)) {
 Write-Host $WpprXML.images.image.copyright
 [string]$WpprLink=$WpprXML.images.image.copyrightlink
 $WpprURL=$WpprURL.Substring(0,$WpprURL.IndexOf('&'))
-$wc = New-Object System.Net.WebClient
 [string]$LocalWppr="$($env:LOCALAPPDATA)\Microsoft\Windows\WallpaperBackup\Theme\DesktopBackground\Bing.jpg"
+$wc = New-Object System.Net.WebClient
 $wc.DownloadFile($WpprURL,$LocalWppr)
 Set-ItemProperty -Path "Registry::HKCU\Control Panel\Desktop" -Name "Wallpaper" -Value $LocalWppr
 RUNDLL32.EXE USER32.DLL,UpdatePerUserSystemParameters 1, True

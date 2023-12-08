@@ -23,16 +23,6 @@ $PSFunctions=(Get-ChildItem "$($PSScriptRoot)\Functions\*.ps1")
 foreach($Function in $PSFunctions) {
     . "$($Function.FullName)"
 }
-function FixUWPCommand {
-    [string]$UWPCommand="$($args[0])"
-    # if($args[0] -like "*Ubuntu*") {
-    #     $UWPCommand="C:\Windows\System32\wsl.exe $($UWPCommand) && sleep 0.8"
-    # }
-    # elseif($args[0] -like "*mspaint*") {
-    #     $UWPCommand="cmd.exe /min /c start $($UWPCommand) && exit"
-    # }
-    return $UWPCommand
-}
 function RefreshGoogleDriveIcons {
     [object[]]$GoogleDriveApps=(Get-ChildItem "C:\Program Files\Google\Drive File Stream\*\GoogleDriveFS.exe" -recurse)
     if($GoogleDriveApps.count -eq 0) {
@@ -130,15 +120,14 @@ if(!(Test-Path "$($PowerShellIconPNG)")) {
 if(!(Test-Path "$($TerminalIconICO)")) {
     Copy-Item -Path "$($WTLocation)\Images\terminal_contrast-white.ico" -Destination "$($env:LocalAppdata)\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe"
 }
-# > Find file location of WSL app and copy it
-[string]$WSLLocation="$((Get-AppxPackage MicrosoftCorporationII.WindowsSubsystemForLinux).InstallLocation)\wsl.exe"
-[string]$WSLIconLocation="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForLinux_8wekyb3d8bbwe\wsl.exe"
-[string]$WSLIconPNG="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForLinux_8wekyb3d8bbwe\Square44x44Logo.altform-lightunplated_targetsize-48.png"
-if(!(Test-Path "$($WSLIconLocation)")) {
-    Copy-Item -Path "$($WSLLocation)" -Destination "$(Split-Path $WSLIconLocation)"
+[string]$WSLLocation="C:\Program Files\WSL\wsl.exe"
+[string]$WSLLocationUWP="$((Get-AppxPackage MicrosoftCorporationII.WindowsSubsystemForLinux).InstallLocation)\wsl.exe"
+if (-NOT (Test-Path "$($WSLLocation)")) {
+    $WSLLocation=$WSLLocationUWP  
 }
+[string]$WSLIconPNG="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForLinux_8wekyb3d8bbwe\Square44x44Logo.altform-lightunplated_targetsize-48.png"
 if(!(Test-Path "$($WSLIconPNG)")) {
-    Copy-Item -Path "$(Split-Path $WSLLocation)\Images\$(Split-Path $WSLIconPNG -Leaf)" -Destination "$(Split-Path $WSLIconPNG)"
+    Copy-Item -Path "$(Split-Path $WSLLocationUWP)\Images\$(Split-Path $WSLIconPNG -Leaf)" -Destination "$(Split-Path $WSLIconPNG)"
 }
 # > Find file location of WMP UWP
 [bool]$WMPUWPInstalled=((Get-AppxPackage *ZuneMusic*).count -gt 0)
@@ -152,41 +141,50 @@ else { # Python app not installed, probably in WSL?
     Remove-Item "Registry::HKCR\py_auto_file" -Force -ErrorAction SilentlyContinue
 }
 # > Find file location of WSA
-foreach($Icon in @("LatteLogo.png","app.ico")) {
-    [string]$WSALocation="$((Get-AppxPackage MicrosoftCorporationII.WindowsSubsystemForAndroid).InstallLocation)\Assets\$($Icon)"
-    [string]$WSAIconLocation="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\$($Icon)"
-    if((Test-Path "$($WSALocation)") -and (!(Test-Path "$($WSAIconLocation)"))) {
-        Copy-Item "$($WSALocation)" "$(Split-Path -Path $WSAIconLocation)"
-    }
-}
-if(Test-Path "$($WSALocation)") {
-    MkDirCLSID "{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}" -Name "Android" -Icon "`"$($WSAIconLocation)`"" -FolderType 6 -IsShortcut
-    [string]$StartWSAAppCommandPrefix="$($env:Localappdata)\Microsoft\WindowsApps\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\WsaClient.exe /launch wsa://"
-    [string[]]$WSAContextMenu=@("open","cmd")
-    [string[]]$WSAContextMenuIcon=@("`"$($WSAIconLocation)`"","$($TerminalIconICO)")
-    [string[]]$WSAContextMenuName=@("Mit Android-Dateibrowser ansehen","WSA ADB-Shell starten")
-    [string[]]$WSAContextMenuCommand=@("$($StartWSAAppCommandPrefix)com.android.documentsui","wt.exe -p `"WSA ADB Shell`"")
-    [string[]]$ExtraApps=@("com.android.settings") # "com.ghisler.android.TotalCommander",
-    for($i=0;$i -lt $ExtraApps.count;$i++) {
-        [string]$AppIconLoc = "$($env:LOCALAPPDATA)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalState\$(`
-        $ExtraApps[$i]).ico"
-        if((Test-Path "$($AppIconLoc)") -or ($ExtraApps[$i] -like "com.android.settings")) {
-            $WSAContextMenu = $WSAContextMenu + @("open$($i+2)")
-            if($ExtraApps[$i] -like "com.android.settings") {
-                $AppIconLoc="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalState\com.google.android.googlequicksearchbox.ico"
-            }
-            $WSAContextMenuIcon = $WSAContextMenuIcon + @("$($AppIconLoc)")
-            [string[]]$WSANameToAdd=switch($i) {
-                0 {
-                    @("Android-Systemeinstellungen")
-                }
-            }
-            $WSAContextMenuName = $WSAContextMenuName + $WSANameToAdd
-            $WSAContextMenuCommand = $WSAContextMenuCommand +@("$($StartWSAAppCommandPrefix)$($ExtraApps[$i])")
+[string]$WSAAppDataDir="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe"
+if(Test-Path $WSAAppDataDir) { # WSA Installed
+    [string[]]$WSAIcons=@("$($WSAAppDataDir)\LatteLogo.png","$($WSAAppDataDir)\app.ico")
+    foreach($Icon in $WSAIcons) {
+        [string]$WSALocation="$((Get-AppxPackage MicrosoftCorporationII.WindowsSubsystemForAndroid).InstallLocation)\Assets\$(Split-Path $Icon -Leaf)"
+        if((Test-Path "$($WSALocation)") -and (!(Test-Path "$($Icon)"))) {
+            Copy-Item "$($WSALocation)" "$(Split-Path -Path $Icon)"
         }
     }
-    CreateFileAssociation "CLSID\{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}" -ShellOperations $WSAContextMenu -ShellOpDisplayName $WSAContextMenuName -Icon $WSAContextMenuIcon -Command $WSAContextMenuCommand
-
+    [string[]]$WSAIconsDistro=(GetDistroIcon "Android")
+    if($WSAIconsDistro -eq 0) {
+        $WSAIconsDistro=$WSAIcons
+    }
+    if(Test-Path "$($WSALocation)") {
+        MkDirCLSID "{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}" -Name "Android" -Icon "`"$($WSAIconsDistro[1])`"" -FolderType 6 -IsShortcut
+        [string]$StartWSAAppCommandPrefix="$($env:Localappdata)\Microsoft\WindowsApps\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\WsaClient.exe /launch wsa://"
+        [string[]]$WSAContextMenu=@("open","cmd")
+        [string[]]$WSAContextMenuIcon=@("`"$($WSAIcons[1])`"","$($TerminalIconICO)")
+        [string[]]$WSAContextMenuName=@("Mit Android-Dateibrowser ansehen","WSA ADB-Shell starten")
+        [string[]]$WSAContextMenuCommand=@("$($StartWSAAppCommandPrefix)com.android.documentsui","wt.exe -p `"WSA ADB Shell`"")
+        [string[]]$ExtraApps=@("com.android.settings") # "com.ghisler.android.TotalCommander",
+        for($i=0;$i -lt $ExtraApps.count;$i++) {
+            [string]$AppIconLoc = "$($env:LOCALAPPDATA)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalState\$(`
+            $ExtraApps[$i]).ico"
+            if((Test-Path "$($AppIconLoc)") -or ($ExtraApps[$i] -like "com.android.settings")) {
+                $WSAContextMenu = $WSAContextMenu + @("open$($i+2)")
+                if($ExtraApps[$i] -like "com.android.settings") {
+                    $AppIconLoc="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalState\com.google.android.googlequicksearchbox.ico"
+                }
+                $WSAContextMenuIcon = $WSAContextMenuIcon + @("$($AppIconLoc)")
+                [string[]]$WSANameToAdd=switch($i) {
+                    0 {
+                        @("Android-Systemeinstellungen")
+                    }
+                }
+                $WSAContextMenuName = $WSAContextMenuName + $WSANameToAdd
+                $WSAContextMenuCommand = $WSAContextMenuCommand +@("$($StartWSAAppCommandPrefix)$($ExtraApps[$i])")
+            }
+        }
+        CreateFileAssociation "CLSID\{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}" -ShellOperations $WSAContextMenu -ShellOpDisplayName $WSAContextMenuName -Icon $WSAContextMenuIcon -Command $WSAContextMenuCommand
+    }
+}
+else { # WSA not installed
+    MkDirCLSID "{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}" -RemoveCLSID
 }
 # > Remove PowerRename
 # if((Get-AppxPackage Microsoft.PowerToys.PowerRenameContextMenu).count -gt 0) {
@@ -360,7 +358,6 @@ if($DAToolSetInstalled) {
     Remove-ItemProperty -Path "Registry::HKCR\.erf" -Name "PerceivedType" -ErrorAction SilentlyContinue
     Remove-ItemProperty -Path "Registry::HKCR\.erf" -Name "Content Type" -ErrorAction SilentlyContinue
 }
-
 # --------- zip relevant, compressed archives ---------
 # System Standard ZIP Folder
 CreateFileAssociation "CompressedFolder" -ShellOperations "open" -Icon "zipfldr.dll,0"
@@ -370,7 +367,7 @@ if($DAToolSetInstalled) {
     $ZipFileAssoExt = $ZipFileAssoExt + @("override")
 }
 [string]$ZipAppInstalled=(Get-Childitem "C:\Program files\*zip").name
-if($ZipAppInstalled -like "*PeaZip*") {
+if($ZipAppInstalled -like "PeaZip") {
     Set-ItemProperty -LiteralPath "Registry::HKCR\*\shell\PeaZip" -Name "SubCommands" -Value "PeaZip.ext2browseasarchive; PeaZip.add2separate; PeaZip.add2separate7zencrypt; PeaZip.analyze; PeaZip.add2wipe; "
     Set-ItemProperty -LiteralPath "Registry::HKCR\*\shell\PeaZip" -Name 'Icon' -Value "C:\Program files\Peazip\peazip.exe"
     <# PeaZip Commands include:
@@ -424,7 +421,7 @@ if($ZipAppInstalled -like "*PeaZip*") {
         }
     } 
 }
-elseif($ZipAppInstalled -like "*7-Zip*") {
+elseif($ZipAppInstalled -like "7-Zip") {
     CreateFileAssociation @("CompressedArchive","Applications\7zFM.exe") `
     -FileAssoList $ZipFileAssoExt `
     -DefaultIcon "imageres.dll,-174" `
@@ -463,6 +460,21 @@ if($VSCodeLocation -like "*Insiders*") {
     [string]$VSCodeVerHKCR="VSCodeInsiders"
 }
 # --------Directories--------
+# Change "Linux (WSL)" Entry icon and location
+if(Test-Path "Registry::HKCR\CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}") {
+    [string]$DistroName=(GetDefaultWSL)
+    if($DistroName.length -eq 0) {
+        MkDirCLSID "{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -RemoveCLSID
+    }
+    [string[]]$WSLIconDistro=(GetDistroIcon "$($DistroName)")
+    if($WSLIconDistro.length -eq 0) {
+        $WSLIconDistro=@($WSLIconPNG,$WSLLocation)
+    }
+    MkDirCLSID "{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -FolderType 6 -Name "$($DistroName)" -Pinned 0 -TargetPath "\\wsl.localhost\$($DistroName.Replace(' ','-'))" -Icon "$($WSLIconDistro[1])" -MkInHKLM
+    CreateFileAssociation "CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ShellOperations "open2" -Icon "$($TerminalIconICO)" -Command "wt.exe -p `"$($DistroName)`""
+    # Remove "Linux" Entry from desktop
+    Remove-Item -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ErrorAction SilentlyContinue
+}
 [string[]]$PowerShellDef=@("","powershell.exe,0") # [0]: Display Name; [1]: Icon file
 # Hide "Open in terminal" entry to unify how the menu looks.
 SetValue "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked" `
@@ -473,18 +485,18 @@ CreateFileAssociation @("Directory\Background","Directory","LibraryFolder\backgr
     -ShellOperations @("cmd","VSCodeNoAdmin","VSCodeWithAdmin","git_shell","git_gui","Powershell","PowershellWithAdmin","WSL") `
     -ShellOpDisplayName @("","Hier VS Code starten","Hier VS Code starten (Administrator)","","","","$($PowerShellDef[0])","") `
     -Icon @("cmd.exe,0","`"$($VSCodeLocation)`",0","`"$($VSCodeLocation)`",0","`"C:\Program Files\Git\git-bash.exe`",0",`
-        "`"C:\Program Files\Git\git-bash.exe`",0","$($PowerShellDef[1])","$($PowerShellDef[1])","`"$($WSLIconLocation)`",0") `
+        "`"C:\Program Files\Git\git-bash.exe`",0","$($PowerShellDef[1])","$($PowerShellDef[1])","`"$($WSLLocation)`",0") `
     -Extended @(0,0,0,1,1,0,0,0) `
     -LegacyDisable @(1,0,0,0,0,0,0,0) `
     -HasLUAShield @(0,0,1,0,0,0,1,0) `
     -MUIVerb @("","","","","","","@twinui.pcshell.dll,-10929","@wsl.exe,-2") `
-    -Command @($(FixUWPCommand "wt.exe -d `"%V `" -p `"Eingabeaufforderung`"" 0),`
+    -Command @("wt.exe -d `"%V `" -p `"Eingabeaufforderung`"",`
         "`"$($VSCodeLocation)`" `"%v `"",`
         "PowerShell -windowstyle hidden -Command `"Start-Process '$($VSCodeLocation)' -ArgumentList '-d `"`"%V`"`"`"' -Verb RunAs`"",`
-        $(FixUWPCommand "wt.exe new-tab --title Git-Bash --tabColor #300a16 --suppressApplicationTitle `"C:\Program Files\Git\bin\bash.exe`"" 0),`
+        "wt.exe new-tab --title Git-Bash --tabColor #300a16 --suppressApplicationTitle `"C:\Program Files\Git\bin\bash.exe`"",`
         "",` # git-gui no need to define
-        $(FixUWPCommand "wt.exe  -d `"%V `" -p `"PowerShell`"" 0),`
-        "PowerShell -windowstyle hidden -Command `"Start-Process wt.exe -ArgumentList '-d `"`"%V `"`"`"' -Verb RunAs`"",$(FixUWPCommand "wt.exe -d `"%V `" -p `"Ubuntu`"" 0))
+        "wt.exe  -d `"%V `" -p `"PowerShell`"",`
+        "PowerShell -windowstyle hidden -Command `"Start-Process wt.exe -ArgumentList '-d `"`"%V `"`"`"' -Verb RunAs`"","wt.exe -d `"%V `" -p `"$($DistroName)`"")
 Remove-Item -Path "Registry::HKCR\Directory\Background\DefaultIcon" -ErrorAction SilentlyContinue # Not needed
 # Admin commands don't work in Library Folders, so disable them in Libraries
 CreateFileAssociation "LibraryFolder\background" -ShellOperations @("VSCodeWithAdmin","PowerShellWithAdmin") -LegacyDisable @(1,1) 
@@ -720,7 +732,7 @@ Remove-Item "Registry::HKCR\Microsoft.PowerShellScript.1\shell\0" -ErrorAction S
 SetValue "HKCR\.log" -Name "Content Type" -Value "text/plain"
 SetValue "HKCR\.log" -Name "PerceivedType" -Value "text"
 # ------- Linux BASH -------
-CreateFileAssociation @("bashfile") -FileAssoList @("sh","bash") -ShellOperations @("open","edit") -Icon @("$($WSLIconLocation)","$($VSCodeLocation)") -Command @("wsl.exe bash `$(wslpath `"%1`")","`"$($VSCodeLocation)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","") -DefaultIcon "$($VSCodeIconsLoc)\shell.ico"
+CreateFileAssociation @("bashfile") -FileAssoList @("sh","bash") -ShellOperations @("open","edit") -Icon @("$($WSLLocation)","$($VSCodeLocation)") -Command @("wsl.exe bash `$(wslpath `"%1`")","`"$($VSCodeLocation)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","") -DefaultIcon "$($VSCodeIconsLoc)\shell.ico"
 # ------- PDF Document -------
 CreateFileAssociation "MSEdgePDF" -ShellOperations "open" -Icon "ieframe.dll,-31065" -MUIVerb "@ieframe.dll,-21819"
 # SumatraPDF related
@@ -1046,9 +1058,17 @@ else {
 # ______rClone Drives_______
 [string]$rClonePath=(where.exe rclone.exe)
 if($rClonePath -like "*rclone.exe") { # rClone installed
-    [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','')
-    for($i=0;$i -lt 9; $i++) {
-             $DriveIcon="`"$($rClonePath)`",0" #"imageres.dll,-1040"
+    [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','') # RClone Drive Names is stored with [] in rclone.conf
+    for($i=0;$i -lt 9; $i++) { # This script can display max. 10 CLSID entries.
+        [int]$StringLength=$rCloneDrives[$i].IndexOf('_')
+        if($StringLength -eq -1) {
+            $StringLength=$rCloneDrives[$i].length
+        }
+        [string[]]$DriveIcons=(GetDistroIcon $rCloneDrives[$i].SubString(0,$StringLength) -CloudDrive)
+        [string]$DriveIcon=$DriveIcons[1]
+        if($DriveIcon.length -eq 0) {
+            $DriveIcon="`"$($rClonePath)`",0"
+        }
         if((((Get-WmiObject Win32_Process -Filter "name='rclone.exe'" | Select-Object CommandLine) -like "* $($rCloneDrives[$i]): *").count) -and ($i -lt $rCloneDrives.count)) {
             MkDirCLSID "{6587a16a-ce27-424b-bc3a-8f044d36fd9$($i)}" -Name "$($rCloneDrives[$i] -replace '_',' ')" -TargetPath "$($env:Userprofile)\$($rCloneDrives[$i])" -Icon "$($DriveIcon)" -FolderType 9 -Pinned 0
         }
@@ -1097,14 +1117,6 @@ SetValue "HKCR\CLSID\{22877a6d-37a1-461a-91b0-dbda5aaebc99}" -Name "System.IsPin
 SetValue "HKCR\CLSID\{22877a6d-37a1-461a-91b0-dbda5aaebc99}" -Name "DescriptionID" -Type 4 -Value 3
 CreateKey "HKCR\CLSID\{22877a6d-37a1-461a-91b0-dbda5aaebc99}\DefaultIcon" -StandardValue "shell32.dll,-37219"
 CreateKey "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{22877a6d-37a1-461a-91b0-dbda5aaebc99}"
-# Change "Linux (WSL)" Entry icon and location
-if(Test-Path "Registry::HKCR\CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}") {
-    [string]$DistroName=(GetDefaultWSL)
-    MkDirCLSID "{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -Name "$($DistroName)" -Pinned 0 -TargetPath "\\wsl.localhost\$($DistroName)" -Icon "$($WSLIconLocation)" -MkInHKLM -FolderType 6
-    CreateFileAssociation "CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ShellOperations "open2" -Icon "$($TerminalIconICO)" -Command "wt.exe -p Ubuntu"
-    # Remove "Linux" Entry from desktop
-    Remove-Item -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ErrorAction SilentlyContinue
-}
 UpdateStorageInfo
 # ----- Folder Options ------
 Set-ItemProperty -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\Folder\HideFileExt" -Name "DefaultValue" -Value 0 # Show file extensions

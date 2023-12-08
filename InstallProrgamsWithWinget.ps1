@@ -10,15 +10,19 @@ else {
 	Write-Host "Script is running with Admin privilege" -ForegroundColor Green
 }
 [string[]]$listofprograms=@(`
+
+# Cloud Drive Programs
 "Box.Box" #,"Google.Drive","pCloudAG.pCloudDrive","Dropbox.Dropbox",` #"Microsoft.OneDrive",
 "Rclone.Rclone","WinFsp.WinFsp",` # WinFSP needed for Rclone mount
+
+# MSSQL
 "Microsoft.SQLServerManagementStudio",`
 # "OpenJS.NodeJS","Git.Git","Docker.DockerDesktop",`
-"Giorgiotani.PeaZip",` # "7zip.7zip",`
+"PeaZip",` # "7zip.7zip",`
 "OBSProject.OBSStudio",`
 "Datronicsoft.SpacedeskDriver.Server",`
 "Google.ChromeRemoteDesktop",` #"TeamViewer.TeamViewer",`
-"Governikus.Ausweisapp2",`
+"Ausweisapp",`
 "Nvidia.PhysX","Microsoft.DirectX",`
 "Oracle.JavaRuntimeEnvironment",`
 "PrivateInternetAccess.PrivateInternetAccess",`
@@ -28,12 +32,22 @@ else {
 "Rainmeter.Rainmeter",`
 "VideoLAN.VLC",` # "KDE.Kdenlive",`
 # "Workrave.Workrave",`
-"BotProductions.IconViewer"`
+"BotProductions.IconViewer",`
+
+# Penetration testing and digital forensics tools
+"WiresharkFoundation.Wireshark","Insecure.Npcap"
 )
+# VSRedist Runtimes
 foreach($VCRedistVersion in @("2005","2008","2010","2012","2013","2015+")) {
 	foreach($VCArch in @("x86","x64")) {
 		$listofprograms= $listofprograms + @("Microsoft.VCRedist.$($VCRedistVersion).$($VCArch)")
 	}
+}
+
+# .NET Desktop Runtimes
+for($i=5; $i -le 8; $i++)
+{
+	$listofprograms= $listofprograms + @("Microsoft.DotNet.DesktopRuntime.$($i)")
 }
 
 foreach ($program in $listofprograms)

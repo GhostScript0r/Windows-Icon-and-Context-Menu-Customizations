@@ -1,5 +1,5 @@
 . "$($PSScriptRoot)\RegistryTweaks-BasicOps.ps1"
-
+. "$($PSScriptRoot)\GetFileSizeOnDisk.ps1"
 function UpdateStorageInfo {
     param()
     [string[]]$CustomDrives=(Split-Path ((Get-ChildItem "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace").Name) -leaf)
@@ -22,7 +22,7 @@ function UpdateStorageInfo {
                 else { # This is WSA drive
                     [string]$DistroVHDPath="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalCache\userdata.*vhdx"
                 }
-                $VHDXSize=ReadableFileSize((Get-Item "$($DistroVHDPath)").length)
+                $VHDXSize=ReadableFileSize(GetFileSizeOnDisk "$($DistroVHDPath)") # WSA VHDX is some new sort. File size ≠ occupied disk size
                 CreateKey "Registry::HKCR\CLSID\$($Drive)" -StandardValue "$($DriveName) ($($VHDXSize) belegt)"
             }
             elseif((Get-ItemProperty "Registry::HKCR\CLSID\$($Drive)").DescriptionID -eq 9) { # this is a network drive
