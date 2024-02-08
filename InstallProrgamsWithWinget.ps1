@@ -17,14 +17,20 @@ else {
 
 # MSSQL
 "Microsoft.SQLServerManagementStudio",`
+
+# Dev kit
 # "OpenJS.NodeJS","Git.Git","Docker.DockerDesktop",`
 "PeaZip",` # "7zip.7zip",`
 "OBSProject.OBSStudio",`
 "Datronicsoft.SpacedeskDriver.Server",`
-"Google.ChromeRemoteDesktop",` #"TeamViewer.TeamViewer",`
+"Google.Chrome","Google.ChromeRemoteDesktop",` #"TeamViewer.TeamViewer",`
 "Ausweisapp",`
+
+# Gaming renderer
 "Nvidia.PhysX","Microsoft.DirectX",`
 "Oracle.JavaRuntimeEnvironment",`
+
+# Network
 "PrivateInternetAccess.PrivateInternetAccess",`
 "qBittorrent.qBittorrent",`
 "SpeedCrunch.SpeedCrunch",`
@@ -36,6 +42,9 @@ else {
 
 # Penetration testing and digital forensics tools
 "WiresharkFoundation.Wireshark","Insecure.Npcap"
+
+# Office app
+"OneNote"
 )
 # VSRedist Runtimes
 foreach($VCRedistVersion in @("2005","2008","2010","2012","2013","2015+")) {

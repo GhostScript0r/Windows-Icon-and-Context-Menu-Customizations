@@ -3,6 +3,7 @@ param(
 )
 . "$($PSScriptRoot)\Functions\RegistryTweaks-BasicOps.ps1"
 . "$($PSScriptRoot)\Functions\RegistryTweaks-FileAssoc.ps1"
+. "$($PSScriptRoot)\Functions\CheckDefaultBrowser.ps1"
 function GetBingXML {
     [OutputType([xml])]
     param(
@@ -28,7 +29,9 @@ Set-ItemProperty -Path "Registry::HKCU\Control Panel\Desktop" -Name "Wallpaper" 
 RUNDLL32.EXE USER32.DLL,UpdatePerUserSystemParameters 1, True
 if($OpenLink) {
     Start-Sleep -s 2
-    . "C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe" $WpprLink
+    $DefaultBrowser=(CheckDefaultBrowser)
+
+    . "$($DefaultBrowser[0])" $WpprLink
 }
 else {
     CreateFileAssociation "DesktopBackground" -ShellOperations "SearchDesktopBackground" -Icon "ieframe.dll,-31048" -Command "powershell.exe -File `"$($PSCommandPath)`" -ArgumentList `"-OpenLink`"" -ShellOpDisplayName "Hintergrundbild online suchen"

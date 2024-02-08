@@ -1,7 +1,8 @@
 ﻿param(
     [switch]$RemoveCommonStartFolder,
     [switch]$UWPRefreshOnly,
-    [switch]$Win32GoogleRefreshOnly
+    [switch]$Win32GoogleRefreshOnly,
+    [switch]$VSCodeRefreshOnly
 )
 # Get admin privilege
 $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
@@ -22,24 +23,6 @@ Write-Host "This script is inteneded to write in the usual registry stuff after 
 $PSFunctions=(Get-ChildItem "$($PSScriptRoot)\Functions\*.ps1")
 foreach($Function in $PSFunctions) {
     . "$($Function.FullName)"
-}
-function RefreshGoogleDriveIcons {
-    [object[]]$GoogleDriveApps=(Get-ChildItem "C:\Program Files\Google\Drive File Stream\*\GoogleDriveFS.exe" -recurse)
-    if($GoogleDriveApps.count -eq 0) {
-        Write-Host "Google Drive FS not yet installed." -ForegroundColor Red
-        Remove-Item "Registry::HKCR\CLSID\{9499128F-5BF8-4F88-989C-B5FE5F058E79}"
-    }
-    else {
-        [string]$GDriveLoc=$GoogleDriveApps[$GoogleDriveApps.count-1].FullName
-        CreateFileAssociation "CLSID\{9499128F-5BF8-4F88-989C-B5FE5F058E79}" -DefaultIcon "`"$($GDriveLoc)`",-61"
-        foreach($GDocExt in @(".gdoc",".gsheet",".gslides")) {
-            Remove-Item "Registry::HKCR\$($GDocExt)\ShellNew" -ErrorAction SilentlyContinue
-        }
-        foreach($GDoc in (Get-ChildItem "Registry::HKCR\GoogleDriveFS.*").Name) {
-            [string]$GDocIcon=(Get-ItemProperty -LiteralPath "Registry::$($GDoc)\DefaultIcon").'(default)'
-            CreateFileAssociation "$($GDoc)" -ShellOperations "open" -Icon "$($GDocIcon)"
-        }
-    }
 }
 # ————————————————————————
 # Main part of the script. At the beginning are the parts needed to be regularly run.
@@ -297,31 +280,12 @@ foreach($LockedKey in $AllLockedKeys) {
         TakeRegOwnership "$($LockedKey)" | Out-Null
     }
 }
-# ------- Check if Google Chrome is installed ---------
-[string]$ChromePath="C:\Program Files\Google\Chrome\Application\chrome.exe"
-[bool]$ChromeInstalled=(Test-Path "$($ChromePath)")
-if($ChromeInstalled) {
-    [string]$BrowserOpenAction="`"$($ChromePath)`" %1"
-    [string]$BrowserIcon="`"$($ChromePath)`",0"
-}
-else { # Microsoft Edge Installed
-    [string]$BrowserOpenAction="`"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`" --single-argument %1"
-    [string]$BrowserIcon="ieframe.dll,-31065"
-}
-# ————————KEYBOARD TWEAKS—————————
-# Use SpeedCrunch as calculator
-[string]$SpeedCrunchPath="C:\Program Files (x86)\SpeedCrunch\speedcrunch.exe"
-if(Test-Path "$($SpeedCrunchPath)") {
-    CreateFileAssociation "ms-calculator" -ShellOperations "open" -Icon "`"$($SpeedCrunchPath)`"" -Command "`"$($SpeedCrunchPath)`""
-}
-# Replace Microsoft People with Google Contacts
-CreateFileAssociation "ms-people" -ShellOperations "open" -Command "$($BrowserOpenAction.Replace(" %1"," contacts.google.com"))"
-# Use QWERTZ German keyboard layout for Chinese IME
-[string]$CurrentKeyboardLayout=(Get-ItemProperty -LiteralPath "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Keyboard Layouts\00000804")."Layout File"
-if($CurrentKeyboardLayout -notlike "KBDGR.DLL") {
-    SetValue "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Keyboard Layouts\00000804" -Name "Layout File" -Value "KBDGR.DLL"
-    BallonNotif "Computer needs to be restarted to let keyboard layout change (EN->DE) take effect"
-}
+# ------- Check default browser ---------
+[string[]]$DefaultBrowser=(CheckDefaultBrowser)
+[string]$BrowserPath=$DefaultBrowser[0]
+[string]$BrowserOpenAction=$DefaultBrowser[1]
+[string]$BrowserIcon=$DefaultBrowser[2]
+[string]$OpenInBrowserText=$DefaultBrowser[3]
 # ————————FILE ASSOCIATIONS—————————
 # --------Any file---------
 # ! Cannot use SetValue function, as the path contains wildcard character *. Must use -LiteralPath
@@ -333,30 +297,6 @@ if(!($?)) {
 [bool]$JREInstalled=((Get-Command javaw -ErrorAction SilentlyContinue).name -like "javaw.exe")
 if($JREInstalled) {
     CreateFileAssociation "jarfile" -ShellOperations "open" -MUIVerb "@shell32.dll,-12710" -Icon "javaw.exe"
-}
-# --------Dragon Age Toolset--------
-[string]$DAToolSetD="D:\Spiele\Dragon Age Origins\Tools\DragonAgeToolset.exe"
-[string]$DAToolSetC="$($env:USERPROFILE)\Spiele\Dragon Age Origins\Tools\DragonAgeToolset.exe"
-[bool]$DAToolSetInstalled=((Test-Path $DAToolSetD) -or (Test-Path $DAToolSetC))
-if($DAToolSetInstalled) {
-    if(Test-Path $DAToolSetD) {
-        [string]$DAToolSetL=$DAToolSetD
-    }
-    elseif(Test-Path $DAToolSetC) {
-        [string]$DAToolSetL=$DAToolSetC
-    }
-    CreateFileAssociation "DAToolSetFile" `
-        -FileAssoList @("arl","cif","das","are","dlb","dlg","erf","gda","rim","uti","cut","cub","mor","mao","mop","mmh","msh") `
-        -DefaultIcon "`"$($DAToolSetL)`",0" `
-        -shelloperations "open" `
-        -ShellOpDisplayName "Mit Dragon Age Toolset ansehen und bearbeiten" `
-        -Icon "`"$($DAToolSetL)`",0" `
-        -Command "wscript.exe `"$($DAToolSetL.replace(".exe",".vbe"))`" `"%1`""
-    if($JREInstalled) {
-        CreateFileAssociation "UTCFile" -FileAssoList "utc" -DefaultIcon "javaw.exe,0" -ShellOperations "run" -ShellDefault "run" -Command "javaw.exe -jar `"$($DAToolSetL.replace("\Tools\DragonAgeToolset.exe","\TlkEdit-R13d\tlkedit.jar"))`" `"%1`""
-    }
-    Remove-ItemProperty -Path "Registry::HKCR\.erf" -Name "PerceivedType" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path "Registry::HKCR\.erf" -Name "Content Type" -ErrorAction SilentlyContinue
 }
 # --------- zip relevant, compressed archives ---------
 # System Standard ZIP Folder
@@ -430,6 +370,45 @@ elseif($ZipAppInstalled -like "7-Zip") {
     -Icon "`"C:\Program Files\7-Zip\7zFM.exe`",0" `
     -Command "`"C:\Program Files\7-Zip\7zFM.exe`" `"%1`""
 }
+# ________________ VS Code related _________________________
+# Check if VS Code is installed systemwide or for current user only
+[string[]]$VSCodeVersion=@("Microsoft VS Code\code.exe","Microsoft VS Code Insiders\Code - Insiders.exe")
+for ($i=0;$i -lt $VScodeVersion.count;$i++) {
+    [string]$VSCodeLocation=(CheckInstallPath "$($VSCodeVersion[$i])")
+    if($VSCodeLocation.length -gt 0) {
+        break
+    }
+}
+[string]$VSCodeIconsLoc="$(Split-Path "$($VSCodeLocation)" -Parent)\resources\app\resources\win32"
+[string]$VSCodeVerHKCR="VSCode"
+if($VSCodeLocation -like "*Insiders*") {
+    [string]$VSCodeVerHKCR="VSCodeInsiders"
+}
+# -----------Text files, VS Code related--------------
+# ------- All VSCode files ------
+[string[]]$VSCHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {$_ -like "$($VSCodeVerHKCR).*"})
+foreach($Key in $VSCHKCR) {
+    if((Get-ItemProperty "Registry::HKCR\$($Key)\shell\open\command" -ErrorAction SilentlyContinue).'(default)' -like "*$($VSCodeLocation)*") {
+        CreateFileAssociation "$($Key)" -ShellOperations "open" -Icon "`"$($VSCodeLocation)`",0" -MUIVerb "@shell32.dll,-37398" -Extended 0
+    }
+    else {
+        # Do nothing for VS Code files without "command" subkey. Those are probably defined somewhere else.
+    }
+}
+CreateKey "HKCR\$($VSCodeVerHKCR).txt\DefaultIcon" -StandardValue "imageres.dll,-19"
+foreach($VSCodeAppHKCR in @("Code.exe","Code - Insiders.exe")) {
+    if(Test-Path "Registry::HKCR\Applications\$($VSCodeAppHKCR)") {
+        CreateFileAssociation "Applications\$($VSCodeAppHKCR)" -ShellOperations "open" -Icon "`"$($VSCodeLocation)`",0" -MUIVerb "@certmgr.dll,-291"
+    }
+}
+# Give "Text" property to all VS Code related files
+foreach($FileExt in (Get-ChildItem "Registry::HKCR\.*").Name) {
+    [string]$ProgID=(Get-ItemProperty -LiteralPath "Registry::$($FileExt)\OpenWithProgIds" -ErrorAction SilentlyContinue) 
+    if(($ProgID -like "*$($VSCodeVerHKCR).*") -and (-not (Test-Path "Registry::$($FileExt)\PersistentHandler"))) {
+        # Change item type to text. Let Windows Search index the items
+        CreateKey "$($FileExt)\PersistentHandler" -StandardValue "{5e941d80-bf96-11cd-b579-08002b30bfeb}"
+    }
+}
 # --------Windows Update package (MSU)--------
 CreateFileAssociation "Microsoft.System.Update.1" `
     -ShellOperations "open" `
@@ -446,19 +425,7 @@ CreateFileAssociation "Folder" `
 CreateFileAssociation "Drive" `
     -ShellOperations @("manage-bde","encrypt-bde","encrypt-bde-elev","pintohome") `
     -Icon @("shell32.dll,-194","shell32.dll,-194","shell32.dll,-194","shell32.dll,-322")
-# Check if VS Code is installed systemwide or for current user only
-[string[]]$VSCodeVersion=@("Microsoft VS Code\code.exe","Microsoft VS Code Insiders\Code - Insiders.exe")
-for ($i=0;$i -lt $VScodeVersion.count;$i++) {
-    [string]$VSCodeLocation=(CheckInstallPath "$($VSCodeVersion[$i])")
-    if($VSCodeLocation.length -gt 0) {
-        break
-    }
-}
-[string]$VSCodeIconsLoc="$(Split-Path "$($VSCodeLocation)" -Parent)\resources\app\resources\win32"
-[string]$VSCodeVerHKCR="VSCode"
-if($VSCodeLocation -like "*Insiders*") {
-    [string]$VSCodeVerHKCR="VSCodeInsiders"
-}
+
 # --------Directories--------
 # Change "Linux (WSL)" Entry icon and location
 if(Test-Path "Registry::HKCR\CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}") {
@@ -634,31 +601,6 @@ elseif($MPlayersInstalled[2]) { # WMP UWP installed
     [string]$WMPAppHKCR=(Get-ChildItem "Registry::HKCR\AppX*" | Where-Object {(Get-ItemProperty -LiteralPath "Registry::$($_)\Application" -ErrorAction SilentlyContinue).ApplicationName -like "*Microsoft.ZuneMusic*"})[0]
     CreateFileAssociation "$($WMPAppHKCR)" -ShellOperations @("open","enqueue","play") -ShellDefault "play" -LegacyDisable @(1,0,0) -Icon @("","shell32.dll,-16752","imageres.dll,-5201") -DefaultIcon "imageres.dll,-134" -MUIVerb @("","@shell32.dll,-37427","")
 }
-# -----------Text files, VS Code related--------------
-# ------- All VSCode files ------
-[string[]]$VSCHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {$_ -like "$($VSCodeVerHKCR).*"})
-foreach($Key in $VSCHKCR) {
-    if((Get-ItemProperty "Registry::HKCR\$($Key)\shell\open\command" -ErrorAction SilentlyContinue).'(default)' -like "*$($VSCodeLocation)*") {
-        CreateFileAssociation "$($Key)" -ShellOperations "open" -Icon "`"$($VSCodeLocation)`",0" -MUIVerb "@shell32.dll,-37398" -Extended 0
-    }
-    else {
-        # Do nothing for VS Code files without "command" subkey. Those are probably defined somewhere else.
-    }
-}
-CreateKey "HKCR\$($VSCodeVerHKCR).txt\DefaultIcon" -StandardValue "imageres.dll,-19"
-foreach($VSCodeAppHKCR in @("Code.exe","Code - Insiders.exe")) {
-    if(Test-Path "Registry::HKCR\Applications\$($VSCodeAppHKCR)") {
-        CreateFileAssociation "Applications\$($VSCodeAppHKCR)" -ShellOperations "open" -Icon "`"$($VSCodeLocation)`",0" -MUIVerb "@certmgr.dll,-291"
-    }
-}
-# Give "Text" property to all VS Code related files
-foreach($FileExt in (Get-ChildItem "Registry::HKCR\.*").Name) {
-    [string]$ProgID=(Get-ItemProperty -LiteralPath "Registry::$($FileExt)\OpenWithProgIds" -ErrorAction SilentlyContinue) 
-    if(($ProgID -like "*$($VSCodeVerHKCR).*") -and (-not (Test-Path "Registry::$($FileExt)\PersistentHandler"))) {
-        # Change item type to text. Let Windows Search index the items
-        CreateKey "$($FileExt)\PersistentHandler" -StandardValue "{5e941d80-bf96-11cd-b579-08002b30bfeb}"
-    }
-}
 # --------EXE File--------
 CreateFileAssociation "exefile" -ShellOperations @("open","runas") `
     -Icon @("imageres.dll,-100","imageres.dll,-100") `
@@ -719,8 +661,8 @@ foreach($ML_Ext in @("xml","htm","html")) {
 }
 CreateFileAssociation @("xmlfile","$($VSCodeVerHKCR).xml") -FileAssoList ".xml" -DefaultIcon "msxml3.dll,-128" `
     -ShellOperations @("open","edit") -ShellDefault "edit" `
-    -Icon @("ieframe.dll,-31065","`"$($VSCodeLocation)`",0") -MUIVerb @("@ieframe.dll,-21819","")`
-    -Command @("`"C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe`" --single-argument %1","`"$($VSCodeLocation)`" `"%1`"") `
+    -Icon @("$($BrowserIcon)","`"$($VSCodeLocation)`",0") -MUIVerb @("$($OpenInBrowserText)","")`
+    -Command @("$($BrowserOpenAction)","`"$($VSCodeLocation)`" `"%1`"") `
     -CommandId @("IE.File","") `
     -DelegateExecute @("{17FE9752-0B5A-4665-84CD-569794602F5C}","")
 Remove-Item "Registry::HKCR\xmlfile\ShellEx\IconHandler" -ErrorAction SilentlyContinue
@@ -734,7 +676,15 @@ SetValue "HKCR\.log" -Name "PerceivedType" -Value "text"
 # ------- Linux BASH -------
 CreateFileAssociation @("bashfile") -FileAssoList @("sh","bash") -ShellOperations @("open","edit") -Icon @("$($WSLLocation)","$($VSCodeLocation)") -Command @("wsl.exe bash `$(wslpath `"%1`")","`"$($VSCodeLocation)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","") -DefaultIcon "$($VSCodeIconsLoc)\shell.ico"
 # ------- PDF Document -------
-CreateFileAssociation "MSEdgePDF" -ShellOperations "open" -Icon "ieframe.dll,-31065" -MUIVerb "@ieframe.dll,-21819"
+[string[]]$BrowserPDFs=@("MSEdgePDF")
+CreateFileAssociation $BrowserPDFs -ShellOperations "open" -Icon "ieframe.dll,-31065" -MUIVerb "@ieframe.dll,-21819"
+if($BrowserPath -like "*chrome.exe*") {
+    $BrowserPDFs = $BrowserPDFs + @("ChromePDF")
+    CreateFileAssociation "ChromePDF" -FileAssoList ".pdf" -DefaultIcon "$($env:Userprofile)\Links\Acrobat.ico" `
+    -ShellOperations @("open") -MUIVerb @("@SearchFolder.dll,-10496") `
+    -Icon @("`"$($BrowserPath)`",0") `
+    -Command @("`"$($BrowserPath)`" `"%1`"")
+}
 # SumatraPDF related
 [string]$SumatraPDFLoc=$(CheckInstallPath "SumatraPDF\sumatrapdf.exe")
 [bool]$SumatraPDFInstalled=$(Test-Path "$($SumatraPDFLoc)")
@@ -764,7 +714,7 @@ if($SumatraPDFInstalled) {
             [string]$KeyWithPrint="$($Key)"
         }
     }
-    CreateFileAssociation "MSEdgePDF" -ShellOperations @("open2","print") -Icon @("`"$($SumatraPDFLoc)`",0","ddores.dll,-2414") -ShellOpDisplayName @("Mit SumatraPDF lesen","") -Command @("`"$($SumatraPDFLoc)`" `"%1`"","")
+    CreateFileAssociation $BrowserPDFs -ShellOperations @("open2") -Icon @("`"$($SumatraPDFLoc)`",0") -ShellOpDisplayName @("Mit SumatraPDF lesen") -Command @("`"$($SumatraPDFLoc)`" `"%1`"") #"ddores.dll,-2414"
     Copy-Item -Path "Registry::HKCR\$($Key)\shell\open\command" -Destination "Registry::HKCR\MSEdgePDF\shell\open2" -Force
     foreach($PrintAction in @("print","printto")) {
         Copy-Item -Path "Registry::HKCR\$($KeyWithPrint)\shell\$($PrintAction)" -Destination "Registry::HKCR\MSEdgePDF\shell" -Force -Recurse -ErrorAction SilentlyContinue
@@ -783,13 +733,13 @@ foreach($PropertyToBeRemoved in @("NeverShowExt")) { #,"IsShortcut"
     Remove-ItemProperty -Path "Registry::HKCR\InternetShortcut" -Name $PropertyToBeRemoved -ErrorAction SilentlyContinue
 }
 Remove-Item -Path "Registry::HKCR\InternetShortcut\ShellEx\ContextMenuHandlers\{FBF23B40-E3F0-101B-8488-00AA003E56F8}" -Force
-CreateFileAssociation "InternetShortcut" -DefaultIcon "url.dll,-5" -ShellOperations @("open","edit","print","printto") -Icon @("$($BrowserIcon)","`"$($VSCodeLocation)`",0","ddores.dll,-2414","ddores.dll,-2413") -MUIVerb @("@synccenter.dll,-6102",,"","","") -LegacyDisable @(0,0,1,1) -Command @("powershell.exe -Command `"`$URL= ((Get-Content '%1') -like 'URL=*') -replace 'URL=',' '; Start-Process 'C:\Program Files (x86)\Microsoft\Edge\Application\msedge.exe' -ArgumentList `$URL`"","`"$($VSCodeLocation)`" `"%1`"","","")
+CreateFileAssociation "InternetShortcut" -DefaultIcon "url.dll,-5" -ShellOperations @("open","edit","print","printto") -Icon @("$($BrowserIcon)","`"$($VSCodeLocation)`",0","ddores.dll,-2414","ddores.dll,-2413") -MUIVerb @("@synccenter.dll,-6102",,"","","") -LegacyDisable @(0,0,1,1) -Command @("powershell.exe -Command `"`$URL= ((Get-Content '%1') -like 'URL=*') -replace 'URL=',' '; Start-Process '$($BrowserPath)' -ArgumentList `$URL`"","`"$($VSCodeLocation)`" `"%1`"","","")
 # --------Google Chrome HTML (if Chrome installed)--------
-if($ChromeInstalled) {
+if($BrowserPath -like "*chrome.exe*") {
     CreateFileAssociation "ChromeHTML" -DefaultIcon "shell32.dll,-14" `
-    -ShellOperations @("open","edit") -MUIVerb @("@ieframe.dll,-10064","") `
-    -Icon @("`"$($ChromePath)`",0","`"$($VSCodeLocation)`",0") `
-    -Command @("`"$($ChromePath)`" `"%1`"","`"$($VSCodeLocation)`" `"%1`"")
+    -ShellOperations @("open","edit") -MUIVerb @("@SearchFolder.dll,-10496","") `
+    -Icon @("`"$($BrowserPath)`",0","`"$($VSCodeLocation)`",0") `
+    -Command @("`"$($BrowserPath)`" `"%1`"","`"$($VSCodeLocation)`" `"%1`"")
 }
 # ---------MS Office files---------
 # File Associations when Microsoft Office is installed
@@ -1147,7 +1097,7 @@ foreach($PathToBeAdded in $PathsToBeAdded) {
         }
     }
 }
-# Remove Windows.old folder
+# Set Auto Cleanup
 [string[]]$VolCaches=(Get-ChildItem "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\").Name
 foreach($TempFileCleanup in $VolCaches) {
     if(($TempFileCleanup -like "*Downloads*") -or ($TempFileCleanup -like "*Recycle Bin")) {
@@ -1158,4 +1108,42 @@ foreach($TempFileCleanup in $VolCaches) {
     }
 }
 # Enable Windows 11 25300+ preview feature
-SetValue -RegPath "HKLM\Software\Microsoft\Windows\CurrentVersion\Shell\Update\Packages\MicrosoftWindows.Client.40729001_cw5n1h2txyewy" -Name "Compatible" -Type "dword" -Value 1
+# SetValue -RegPath "HKLM\Software\Microsoft\Windows\CurrentVersion\Shell\Update\Packages\MicrosoftWindows.Client.40729001_cw5n1h2txyewy" -Name "Compatible" -Type "dword" -Value 1
+# ————————KEYBOARD TWEAKS—————————
+# Use SpeedCrunch as calculator
+[string]$SpeedCrunchPath="C:\Program Files (x86)\SpeedCrunch\speedcrunch.exe"
+if(Test-Path "$($SpeedCrunchPath)") {
+    CreateFileAssociation "ms-calculator" -ShellOperations "open" -Icon "`"$($SpeedCrunchPath)`"" -Command "`"$($SpeedCrunchPath)`""
+}
+# Replace Microsoft People with Google Contacts
+CreateFileAssociation "ms-people" -ShellOperations "open" -Command "$($BrowserOpenAction.Replace(" %1"," contacts.google.com"))"
+# Use QWERTZ German keyboard layout for Chinese IME
+[string]$CurrentKeyboardLayout=(Get-ItemProperty -LiteralPath "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Keyboard Layouts\00000804")."Layout File"
+if($CurrentKeyboardLayout -notlike "KBDGR.DLL") {
+    SetValue "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Keyboard Layouts\00000804" -Name "Layout File" -Value "KBDGR.DLL"
+    BallonNotif "Computer needs to be restarted to let keyboard layout change (EN->DE) take effect"
+}
+# --------Dragon Age Toolset--------
+[string]$DAToolSetD="D:\Spiele\Dragon Age Origins\Tools\DragonAgeToolset.exe"
+[string]$DAToolSetC="$($env:USERPROFILE)\Spiele\Dragon Age Origins\Tools\DragonAgeToolset.exe"
+[bool]$DAToolSetInstalled=((Test-Path $DAToolSetD) -or (Test-Path $DAToolSetC))
+if($DAToolSetInstalled) {
+    if(Test-Path $DAToolSetD) {
+        [string]$DAToolSetL=$DAToolSetD
+    }
+    elseif(Test-Path $DAToolSetC) {
+        [string]$DAToolSetL=$DAToolSetC
+    }
+    CreateFileAssociation "DAToolSetFile" `
+        -FileAssoList @("arl","cif","das","are","dlb","dlg","erf","gda","rim","uti","cut","cub","mor","mao","mop","mmh","msh") `
+        -DefaultIcon "`"$($DAToolSetL)`",0" `
+        -shelloperations "open" `
+        -ShellOpDisplayName "Mit Dragon Age Toolset ansehen und bearbeiten" `
+        -Icon "`"$($DAToolSetL)`",0" `
+        -Command "wscript.exe `"$($DAToolSetL.replace(".exe",".vbe"))`" `"%1`""
+    if($JREInstalled) {
+        CreateFileAssociation "UTCFile" -FileAssoList "utc" -DefaultIcon "javaw.exe,0" -ShellOperations "run" -ShellDefault "run" -Command "javaw.exe -jar `"$($DAToolSetL.replace("\Tools\DragonAgeToolset.exe","\TlkEdit-R13d\tlkedit.jar"))`" `"%1`""
+    }
+    Remove-ItemProperty -Path "Registry::HKCR\.erf" -Name "PerceivedType" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "Registry::HKCR\.erf" -Name "Content Type" -ErrorAction SilentlyContinue
+}
