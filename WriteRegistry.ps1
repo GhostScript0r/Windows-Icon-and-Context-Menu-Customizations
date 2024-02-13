@@ -4,26 +4,20 @@
     [switch]$Win32GoogleRefreshOnly,
     [switch]$VSCodeRefreshOnly
 )
-# Get admin privilege
-$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-[bool]$ScriptIsRunningOnAdmin=($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
-if(!($ScriptIsRunningOnAdmin)) {
-	Write-Host "The script $($PSCommandPath.Name) is NOT running with Admin privilege." -ForegroundColor Red -BackgroundColor White
-    [string]$ScriptWithArgs="`"$($PSCommandPath)`""
-    foreach($Argument in @("RemoveCommonStartFolder","UWPRefreshOnly","Win32GoogleRefreshOnly")) {
-        if((Get-Variable "$($Argument)").value -eq $true) {
-            $ScriptWithArgs=$ScriptWithArgs + " -$($Argument) "
-        }
-    }
-    Start-Process powershell.exe -ArgumentList "-File $($ScriptWithArgs)" -verb runas
-	exit
-}
 Write-Host "This script is inteneded to write in the usual registry stuff after Windows OOBE or in-place upgrade" -BackgroundColor White -ForegroundColor Blue
 # Call functions
 $PSFunctions=(Get-ChildItem "$($PSScriptRoot)\Functions\*.ps1")
 foreach($Function in $PSFunctions) {
     . "$($Function.FullName)"
 }
+# Check Admin Privilege
+[string[]]$ArgumentToPass=@()
+foreach($Argum in @("RemoveCommonStartFolder","UWPRefreshOnly","Win32GoogleRefreshOnly","VSCodeRefreshOnly")) {
+    if((Get-Variable "$($Argum)").value -eq $true) {
+        $ArgumentToPass = $ArgumentToPass + @($Argum)    
+    }
+}
+RunAsAdmin "$($PSCommandPath)" -Arguments $ArgumentToPass
 # ————————————————————————
 # Main part of the script. At the beginning are the parts needed to be regularly run.
 # -----------

@@ -3,17 +3,14 @@ param(
 	[switch]$EspeciallyAnnoyingOnly
 )
 # Get Admin privilege
-$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-[bool]$ScriptIsRunningOnAdmin=($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
-$host.UI.RawUI.WindowTitle="Refresh Windows apps"
-if(!($ScriptIsRunningOnAdmin)) {
-	Write-Host "This script require Admin privilege to work." -ForegroundColor Red -BackgroundColor White
-	Start-Process -FilePath powershell.exe -ArgumentList "-File $($PSCommandPath)" -verb runas
-	exit
+. "$($PSScriptRoot)\Functions\RunAsAdmin.ps1"
+[string[]]$ArgumentToPass=@()
+foreach($Argum in @("OfficeCleanupOnly","EspeciallyAnnoyingOnly")) {
+    if((Get-Variable "$($Argum)").value -eq $true) {
+        $ArgumentToPass = $ArgumentToPass + @($Argum)    
+    }
 }
-else {
-	Write-Host "This script is running with admin Privilege." -ForegroundColor Green
-}
+RunAsAdmin "$($PSCommandPath)" -Arguments $ArgumentToPass
 function ForceUninstall {
 	if($args[0].GetType().Name -like "string") {
 		# This is a useless app that need to be removed
@@ -86,9 +83,9 @@ if($OfficeCleanupOnly) {
 # [string[]]$AppsWithFileAsso=@("Microsoft.Paint", "Microsoft.WindowsTerminal", "Microsoft.WindowsTerminalPreview", "PythonSoftwareFoundation.Python.3.10")
 # Define apps that need to be removed
 [string[]]$uselessapps=@("Microsoft.WindowsAlarms",`
-	"Microsoft.Windows.Photos", "Microsoft.549981C3F5F10", "Microsoft.WindowsMaps","Microsoft.YourPhone",`
+	"Microsoft.Windows.Photos", "Microsoft.549981C3F5F10", "Microsoft.WindowsMaps", ` #"Microsoft.YourPhone",`
 	"Microsoft.GetHelp","Microsoft.BingNews","Microsoft.WindowsNotepad",`
-	"Microsoft.People", "Microsoft.MicrosoftStickyNotes", "Microsoft.Office.OneNote", "Microsoft.MicrosoftOfficeHub",`
+	"Microsoft.People", "Microsoft.MicrosoftStickyNotes", "Microsoft.MicrosoftOfficeHub",` #"Microsoft.Office.OneNote", 
 	"Microsoft.Microsoft3DViewer","Microsoft.MicrosoftSolitaireCollection",`
 	"Microsoft.MixedReality.Portal", "Microsoft.XboxApp", "Microsoft.WindowsCalculator", "Microsoft.SkypeApp",`
 	"Microsoft.MSPaint", "Microsoft.BingWeather", "Microsoft.Getstarted", "Microsoft.WindowsSoundRecorder", "Microsoft.Todos",`

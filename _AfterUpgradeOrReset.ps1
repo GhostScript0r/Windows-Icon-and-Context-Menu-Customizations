@@ -3,25 +3,14 @@ param(
 )
 [string]$ExtraParam=""
 if($OOBE) {
-    $ExtraParam=$ExtraParam + " -OOBE"
+    $ExtraParam=$ExtraParam + "OOBE"
 }
-$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-[bool]$ScriptIsRunningOnAdmin=($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
-if(!($ScriptIsRunningOnAdmin)) {
-    Write-Host "The script need to run with admin privilege."
-    Start-Process powershell.exe -ArgumentList "-File `"$($PSCommandPath)`" $($ExtraParam)" -verb runas
-    exit
-}
-else {
-    Write-Host "Script is running with Admin privilege." -ForegroundColor Green
-}
+. "$($PSScriptRoot)\Functions\RunAsAdmin.ps1"
+RunAsAdmin "$($PSCommandPath)" -Arguments @($ExtraParam)
 if($OOBE) {
     powershell.exe -File "$($PSScriptRoot)\InstallProrgamsWithWinget.ps1"
     powershell.exe -File "$($PSScriptRoot)\AppData_Symlink.ps1"
     powershell.exe -File "$($PSScriptRoot)\CreateShortcutIcon.ps1"
-}
-if(Test-Path "$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs (1)") {
-    Remove-Item -Recurse -Force "$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs (1)"
 }
 [int]$CurrentBuildVer=[System.Environment]::OSVersion.Version.Build
 [string]$LastBuildVerFile="$($env:LOCALAPPDATA)\Microsoft\LastBuildVer.json"

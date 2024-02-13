@@ -1,14 +1,6 @@
 # Get admin privilege
-$currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
-[bool]$ScriptIsRunningOnAdmin=($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
-if(!($ScriptIsRunningOnAdmin)) {
-	Write-Host "The script $($PSCommandPath.Name) is NOT running with Admin privilege."
-	Start-Process powershell.exe -ArgumentList "-File `"$($PSCommandPath)`"" -verb runas
-	exit
-}
-else {
-	Write-Host "Script is running with Admin privilege" -ForegroundColor Green
-}
+. "$($PSScriptRoot)\Functions\RunAsAdmin.ps1"
+RunAsAdmin "$($PSCommandPath)"
 [string[]]$listofprograms=@(`
 
 # Cloud Drive Programs
