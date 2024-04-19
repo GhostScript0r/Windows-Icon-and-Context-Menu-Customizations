@@ -1,18 +1,19 @@
 param(
     [switch]$OOBE
 )
-[string]$ExtraParam=""
-if($OOBE) {
-    $ExtraParam=$ExtraParam + "OOBE"
-}
 . "$($PSScriptRoot)\Functions\RunAsAdmin.ps1"
-RunAsAdmin "$($PSCommandPath)" -Arguments @($ExtraParam)
+if($OOBE) {
+    RunAsAdmin "$($PSCommandPath)" -Arguments @("OOBE")
+}
+else {
+    RunAsAdmin "$($PSCommandPath)"
+}
 if($OOBE) {
     powershell.exe -File "$($PSScriptRoot)\InstallProrgamsWithWinget.ps1"
     powershell.exe -File "$($PSScriptRoot)\AppData_Symlink.ps1"
     powershell.exe -File "$($PSScriptRoot)\CreateShortcutIcon.ps1"
 }
-[int]$CurrentBuildVer=[System.Environment]::OSVersion.Version.Build
+[int]$CurrentBuildVer=[System.Environment]::OSVersion.Version.Build # The version number is already Int32 value. Use [int] before the variable just to be sure.
 [string]$LastBuildVerFile="$($env:LOCALAPPDATA)\Microsoft\LastBuildVer.json"
 if(Test-Path $LastBuildVerFile) {
     [int]$LastBuildVer=(Get-Content "$($LastBuildVerFile)" | ConvertFrom-Json)

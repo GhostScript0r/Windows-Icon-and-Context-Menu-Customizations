@@ -114,31 +114,35 @@ foreach ($uselessapp in $uselessapps)
 		ForceUninstall $uselessapp
 	}
 }
-# Refresh all MS Store apps
-Start-Sleep -Seconds 5
-$AllApps = Get-AppxPackage -allusers *
+# Refresh all MS Store apps. NO LONGER Useful since the 0x80070005 error no longer exists.
+# Start-Sleep -Seconds 5
+# $AllApps = Get-AppxPackage -allusers *
 # [bool]$FileAssoRegRefreshNeeded=$false
-foreach($UWPapp in $AllApps)
-{
-	if(-Not $uselessapps.Contains($UWPapp.Name))	{
-		if($UWPapp.PackageUserInformation -like "*Staged*") {
-			Write-Output "refreshing $($UWPapp.PackageFullName)"
-			Add-AppxPackage -DisableDevelopmentMode -Register "$($UWPapp.InstallLocation)\AppXManifest.xml" -Erroraction 'silentlycontinue'
-			if((-Not $?) -and ($Error[0] -like "*0x80073D06*")) {
-				Write-Output "This package is outdated, removing ..."
-				ForceUninstall $UWPapp
-				# if($AppsWithFileAsso.contains($UWPapp.Name)) {
-				# 	Write-Host "need to refresh file associations context menu of file $($UWPapp.name)" -ForegroundColor Cyan
-				# 	$FileAssoRegRefreshNeeded=$true
-				# }
-				if($UWPapp.Name -like "Microsoft.WindowsTerminal*") {
-					powershell.exe -File "$($PSScriptRoot)\Symlink_AppData.ps1" -TerminalOnly
-				}
-				Write-Host "`n"
-			}
-		}
-	}
-}
+# foreach($UWPapp in $AllApps)
+# {
+# 	if(-Not $uselessapps.Contains($UWPapp.Name))	{
+# 		if($UWPapp.PackageUserInformation -like "*Staged*") {
+# 			Write-Output "refreshing $($UWPapp.PackageFullName)"
+# 			try {
+# 				Add-AppxPackage -DisableDevelopmentMode -Register "$($UWPapp.InstallLocation)\AppXManifest.xml" -Erroraction 'silentlycontinue'
+# 			}
+# 			catch {
+# 				if(($Error[0] -like "*0x80073D06*") -and ()) {
+# 					Write-Output "This package is outdated, removing ..."
+# 					ForceUninstall $UWPapp
+# 					# if($AppsWithFileAsso.contains($UWPapp.Name)) {
+# 					# 	Write-Host "need to refresh file associations context menu of file $($UWPapp.name)" -ForegroundColor Cyan
+# 					# 	$FileAssoRegRefreshNeeded=$true
+# 					# }
+# 					if($UWPapp.Name -like "Microsoft.WindowsTerminal*") {
+# 						powershell.exe -File "$($PSScriptRoot)\Symlink_AppData.ps1" -TerminalOnly
+# 					}
+# 					Write-Host "`n"
+# 			}
+# 		}
+# 		}
+# 	}
+# }
 # if($FileAssoRegRefreshNeeded) {
 # 	powershell.exe -File "$($PSScriptRoot)\WriteRegistry.ps1" -ArgumentList "-UWPRefreshOnly"
 # }

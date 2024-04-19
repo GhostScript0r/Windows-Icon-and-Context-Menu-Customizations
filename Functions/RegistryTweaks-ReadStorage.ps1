@@ -26,48 +26,64 @@ function UpdateStorageInfo {
                 CreateKey "Registry::HKCR\CLSID\$($Drive)" -StandardValue "$($DriveName) ($($VHDXSize) belegt)"
             }
             elseif((Get-ItemProperty "Registry::HKCR\CLSID\$($Drive)").DescriptionID -eq 9) { # this is a network drive
-                if((($DriveName -like "Google*" -and (Test-Path "C:\Program Files\Google\Drive File Stream\drive_fs.ico")) -or ($DriveName -like "pCloud*" -and (Test-Path "C:\Program Files\pCloud Drive\pcloud.exe"))) -and ($DriveName -NotLike "*Yahoo*")) { # these are virtual drives
-                    if($DriveName -like "Google*") {$DriveLetter="A"}
-                    elseif($DriveName -like "pCloud*") {$DriveLetter="P"}
-                    $DriveInfo=(Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object {$_.DeviceID -eq "$($DriveLetter):"})
-                    [string]$UsedSpace=ReadableFileSize($DriveInfo.Size-$DriveInfo.FreeSpace)
-                    [string]$TotalSpace="$($DriveInfo.Size/1GB) GB"
-                }
-                else {
-                    $OneNoteSize=0GB
-                    if($DriveName -like "pCloud*") {
-                        $TotalSpace="9 GB"
+                if((Test-NetConnection box.com).pingsucceeded) { # Only calculate disk size if there's internet connection.
+                    if((($DriveName -like "Google*" -and (Test-Path "C:\Program Files\Google\Drive File Stream\drive_fs.ico")) -or ($DriveName -like "pCloud*" -and (Test-Path "C:\Program Files\pCloud Drive\pcloud.exe"))) -and ($DriveName -NotLike "*Yahoo*")) { # Virtual drives created by Google Drive and pCloud app
+                        if($DriveName -like "Google*") {$DriveLetter="A"}
+                        elseif($DriveName -like "pCloud*") {$DriveLetter="P"}
+                        $DriveInfo=(Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object {$_.DeviceID -eq "$($DriveLetter):"})
+                        [string]$UsedSpace=ReadableFileSize($DriveInfo.Size-$DriveInfo.FreeSpace)
+                        [string]$TotalSpace="$($DriveInfo.Size/1GB) GB"
                     }
-                    elseif($DriveName -like "OneDrive*") {
-                        $TotalSpace = "5 GB"
-                        if($DriveName -like "OneDrive Yahoo*") {
-                            $OneNoteSize=2.01GB
-                        }
-                        else {
-                            SetValue "HKCR\CLSID\$($Drive)\ShellFolder" -Name "FolderValueFlags" -Type 4 -Value 0x30
-                            if($DriveName -like "OneDrive - Personal") {
-                                $DriveName="OneDrive"
+                    elseif(Test-Path "$($env:Userprofile)\$($DriveName -creplace ' ','_')") { # Rclone drive
+                        $OneNoteSize=0GB
+                        if($DriveName -like "pCloud*") {
+                            $TotalSpace="9 GB"
+                            if($DriveName -like "pCloud Yahoo*") {
+                                $TotalSpace="10 GB"
                             }
                         }
+                        elseif($DriveName -like "OneDrive*") {
+                            $TotalSpace = "5 GB"
+                            if($DriveName -like "OneDrive Yahoo*") {
+                                $OneNoteSize=2.01GB
+                            }
+                            else {
+                                SetValue "HKCR\CLSID\$($Drive)\ShellFolder" -Name "FolderValueFlags" -Type 4 -Value 0x30
+                                if($DriveName -like "OneDrive - Personal") {
+                                    $DriveName="OneDrive"
+                                }
+                            }
+                        }
+                        elseif($DriveName -like "DropBox*") {
+                            $TotalSpace = "2 GB"
+                        }
+                        elseif($DriveName -like "Box*") {
+                            $TotalSpace = "10 GB"
+                        }
+                        elseif($DriveName -like "Google Drive*") {
+                            $TotalSpace = "15 GB"
+                        }
+                        $UsedSpace=Readablefilesize((Get-ChildItem "$($env:Userprofile)\$($DriveName -creplace ' ','_')" -Force -Recurse | Measure-Object -Sum Length).Sum + $OneNoteSize)   
                     }
-                    elseif($DriveName -like "DropBox*") {
-                        $TotalSpace = "2 GB"
+                    else { # Drive cannot be sorted
+                        $UsedSpace="rClone gestoppt"
                     }
-                    elseif($DriveName -like "Box*") {
-                        $TotalSpace = "10 GB"
+                    if($UsedSpace.length -eq 0) {
+                        $UsedSpace="0 B"
                     }
-                    elseif($DriveName -like "Google Drive*") {
-                        $TotalSpace = "15 GB"
+                    if($TotalSpace.length -eq 0) {
+                        $TotalSpace="0 GB"
                     }
-                    $UsedSpace=Readablefilesize((Get-ChildItem "$($env:Userprofile)\$($DriveName -creplace ' ','_')" -Force -Recurse | Measure-Object -Sum Length).Sum + $OneNoteSize)   
+                    [string]$StorageInformation="$($UsedSpace)"
+                    if($UsedSpace -notlike "rClone gestoppt") {
+                       $StorageInformation=$StorageInformation + " von $($TotalSpace) belegt" 
+                    }
                 }
-                if($UsedSpace.length -eq 0) {
-                    $UsedSpace="0 B"
+                else {
+                    [string]$StorageInformation="keine Verbindung"
+                    # Kill all rclone.exe commands to prevent Windows Explorer from freezing.
                 }
-                if($TotalSpace.length -eq 0) {
-                    $TotalSpace="0 GB"
-                }
-                CreateKey "HKCR\CLSID\$($Drive)" -StandardValue "$($DriveName) ($($UsedSpace) von $($TotalSpace) belegt)"
+                CreateKey "HKCR\CLSID\$($Drive)" -StandardValue "$($DriveName) ($($StorageInformation))"
             }
         }
     }

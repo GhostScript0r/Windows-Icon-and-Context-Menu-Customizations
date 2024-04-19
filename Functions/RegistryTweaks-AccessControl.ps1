@@ -57,8 +57,10 @@ function MakeReadOnly {
     }
     foreach($User in $UserToDeny) {
         $ACL=(Get-Acl "$($Key)")
-        $CurrentStatus=($ACL.Access | Where-Object {$_.IdentityReference -like "$($User)"})[0]
-        if(!($?)) {
+        try {
+            $CurrentStatus=($ACL.Access | Where-Object {$_.IdentityReference -like "$($User)"})[0]
+        }
+        catch {
             continue # Last key failed -- user does not exist at all in the list
         }
         if($CurrentStatus.RegistryRights -like "ReadKey") {

@@ -8,32 +8,45 @@ function GetBingXML {
     [OutputType([xml])]
     param(
     )
-    [xml]$BingWpprXML=(Invoke-WebRequest -uri "https://www.bing.com/HPImageArchive.aspx?format=xml&idx=0&n=1&mkt=de-DE").Content
+    [xml]$BingWpprXML=(Invoke-WebRequest -uri "https://www.bing.com/HPImageArchive.aspx?format=xml&idx=0&n=1").Content
     return $BingWpprXML
 }
+# Main part of the script
+[string]$LocalWpprLoc="$($env:LOCALAPPDATA)\Microsoft\Windows\WallpaperBackup\Theme\DesktopBackground"
+New-Item -ItemType Directory -Path "$($LocalWpprLoc)" -ea 0
+[string]$CurrentDate=((Get-Date -Format "o") -replace "[^0-9]" , '')
+[int]$CurrentDate=$CurrentDate.Substring(0,8)
+[string]$LocalWppr="$($LocalWpprLoc)\Bing$($CurrentDate).jpg"
 [xml]$WpprXML=(GetBingXML)
-while(!($?)) {
-    # No internet connection or internet connection failed
+while(!($?)) { # ERROR Level 1: No internet connection or internet connection failed
     Write-Host "Keine Verbindung zum Bing-Wallpaper-Server" -ForegroundColor White -BackgroundColor Red
-    Start-Sleep -s 300
+    Start-Sleep -s 300 # Repeat each 5 minutes, until internet connection is established
     [xml]$WpprXML=(GetBingXML)
 }
 [string]$WpprURL= "https://bing.com" + $WpprXML.images.image.url
 Write-Host $WpprXML.images.image.copyright
 [string]$WpprLink=$WpprXML.images.image.copyrightlink
-$WpprURL=$WpprURL.Substring(0,$WpprURL.IndexOf('&'))
-[string]$LocalWppr="$($env:LOCALAPPDATA)\Microsoft\Windows\WallpaperBackup\Theme\DesktopBackground\Bing.jpg"
-$wc = New-Object System.Net.WebClient
-$wc.DownloadFile($WpprURL,$LocalWppr)
+if(!(Test-Path $LocalWppr)) { # Bing wallpaper not downloaded for today
+    $WpprURL=$WpprURL.Substring(0,$WpprURL.IndexOf('&'))
+    $wc = New-Object System.Net.WebClient
+    $wc.DownloadFile($WpprURL,$LocalWppr) # Download the latest wallpaper
+    foreach ($OldWppr in (Get-ChildItem "$($LocalWpprLoc)\Bing*.jpg")) {
+        if($OldWppr.Name -notlike "Bing$($CurrentDate).jpg") {
+            Remove-Item $OldWppr # Remove Older Bing Wallpapers
+        }
+    } # Adding versioning is necessary, as otherwise the wallpaper won't update properly
+}
 Set-ItemProperty -Path "Registry::HKCU\Control Panel\Desktop" -Name "Wallpaper" -Value $LocalWppr
-RUNDLL32.EXE USER32.DLL,UpdatePerUserSystemParameters 1, True
+Set-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers" -Name "BackgroundHistoryPath0" -Value $LocalWppr
+Set-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers" -Name "BackgroundType" -Value 0
+RUNDLL32.EXE USER32.DLL,UpdatePerUserSystemParameters 1, True # Update Wallpaper
 if($OpenLink) {
     Start-Sleep -s 2
     $DefaultBrowser=(CheckDefaultBrowser)
-
-    . "$($DefaultBrowser[0])" $WpprLink
+    . "$($DefaultBrowser[0])" $WpprLink # Run Default Browser
 }
 else {
     CreateFileAssociation "DesktopBackground" -ShellOperations "SearchDesktopBackground" -Icon "ieframe.dll,-31048" -Command "powershell.exe -File `"$($PSCommandPath)`" -ArgumentList `"-OpenLink`"" -ShellOpDisplayName "Hintergrundbild online suchen"
-SetValue "HKCR\DesktopBackground\shell\SearchDesktopBackground" -Name "Position" -Value "Bottom"
+    SetValue "HKCR\DesktopBackground\shell\SearchDesktopBackground" -Name "Position" -Value "Bottom"
+    # No need to acquire admin rights, as this part shall always run with admin privilege when running from task scheduler
 }

@@ -1,9 +1,10 @@
 ﻿param(
     [switch]$RemoveCommonStartFolder,
-    [switch]$UWPRefreshOnly,
+    [switch]$StorageRefreshOnly,
     [switch]$Win32GoogleRefreshOnly,
     [switch]$VSCodeRefreshOnly
 )
+# Write-Host ((Get-Variable -scope private).Name + @(" ") + (Get-Variable -scope local).Name)
 Write-Host "This script is inteneded to write in the usual registry stuff after Windows OOBE or in-place upgrade" -BackgroundColor White -ForegroundColor Blue
 # Call functions
 $PSFunctions=(Get-ChildItem "$($PSScriptRoot)\Functions\*.ps1")
@@ -11,16 +12,13 @@ foreach($Function in $PSFunctions) {
     . "$($Function.FullName)"
 }
 # Check Admin Privilege
-[string[]]$ArgumentToPass=@()
-foreach($Argum in @("RemoveCommonStartFolder","UWPRefreshOnly","Win32GoogleRefreshOnly","VSCodeRefreshOnly")) {
+foreach($Argum in (GetThisScriptVariable $(Get-Variable))) {
     if((Get-Variable "$($Argum)").value -eq $true) {
         $ArgumentToPass = $ArgumentToPass + @($Argum)    
     }
 }
 RunAsAdmin "$($PSCommandPath)" -Arguments $ArgumentToPass
-# ————————————————————————
-# Main part of the script. At the beginning are the parts needed to be regularly run.
-# -----------
+# ---------------------
 # Update the name of other drives shown in Windows Explorer to get drive size infos
 # —————————————————————
 # Refresh Box Drive if updated
@@ -29,7 +27,7 @@ RunAsAdmin "$($PSCommandPath)" -Arguments $ArgumentToPass
 if(Test-Path "$($BoxInstallLoc)") {
     foreach($BoxDriveCLSID in $BoxDriveCLSIDs) {
         foreach($RegRoot in @("HKCR","HKLM")) {
-            Remove-Item "Registry::$($RegRoot)\Software\Microsoft\Windows\CurrentVersion\Explorer\Desktop\Namespace\$(Split-Path $BoxDriveCLSID -leaf)" -Force -ErrorAction SilentlyContinue
+            Remove-Item "Registry::$($RegRoot)\Software\Microsoft\Windows\CurrentVersion\Explorer\Desktop\Namespace\$(Split-Path $BoxDriveCLSID -leaf)" -Force -ea 0
         }
         # CreateKey "$($BoxDriveCLSID)" -StandardValue "Box"
         if((Get-ItemProperty -LiteralPath "Registry::$($BoxDriveCLSID)\DefaultIcon").'default' -like "`"$($BoxInstallLoc)`"") {
@@ -45,7 +43,7 @@ if(Test-Path "$($BoxInstallLoc)") {
             CreateKey "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\Namespace\$(Split-Path $BoxDriveCLSID -leaf)"
         }
         # Remove Box Drive Entry from desktop
-        Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Desktop\$(Split-Path $BoxDriveCLSID -leaf)" -Force -ErrorAction SilentlyContinue
+        Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Desktop\$(Split-Path $BoxDriveCLSID -leaf)" -Force -ea 0
         # if($?) { # Making Box Drive CLSID read-only will break Box updater, so they are commented out.
         #     MakeReadOnly "$($BoxDriveCLSID)\DefaultIcon" -InclAdmin 
         # }
@@ -60,24 +58,22 @@ if(Test-Path "$($BoxInstallLoc)") {
 }
 else {
     foreach($BoxDriveCLSID in $BoxDriveCLSIDs) {
-        Remove-Item "Registry::$($BoxDriveCLSID)" -Force -Recurse -ErrorAction SilentlyContinue
-        Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\Namespace\$(Split-Path $BoxDriveCLSID -leaf)" -Force -Recurse -ErrorAction SilentlyContinue
+        Remove-Item "Registry::$($BoxDriveCLSID)" -Force -Recurse -ea 0
+        Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\Namespace\$(Split-Path $BoxDriveCLSID -leaf)" -Force -Recurse -ea 0
     }
 }
-
-# Remove-Item "Registry::HKCR\Directory\Background\shellex\ContextMenuHandlers\ACE" -Force -ErrorAction SilentlyContinue
-# Remove-Item "Registry::HKCR\Directory\Background\shellex\ContextMenuHandlers\DropboxExt" -Force -ErrorAction SilentlyContinue
+# Remove-Item "Registry::HKCR\Directory\Background\shellex\ContextMenuHandlers\ACE" -Force -ea 0 # Remove AMD Radeon
+# Remove-Item "Registry::HKCR\Directory\Background\shellex\ContextMenuHandlers\DropboxExt" -Force -ea 0
 # Change Box Entry
 if((Test-Path "$($env:USERPROFILE)\old_Box") -or ((Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders").'{A0C69A99-21C8-4671-8703-7934162FCF1D}' -notlike "*\Box\Music")) {
     ModifyMusicLibraryNamespace
-    Remove-Item "$($env:USERPROFILE)\old_Box" -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item "$($env:USERPROFILE)\old_Box" -Force -Recurse -ea 0
 }
-if($UWPRefreshOnly) {
+if($StorageRefreshOnly) {
     UpdateStorageInfo
     exit
 }
-
-# The 5-minute UWP refresh script ends at the place above. 
+# The 5-minute storage refresh script ends at the place above. 
 # #######################################################
 # Here starts the script that will only be run manually or when a system version update is done.
 # > Find file location of paint app and copy it out
@@ -86,7 +82,7 @@ if($UWPRefreshOnly) {
 if(!(Test-Path "$($PaintIconLocation)")) {
     Copy-Item -Path "$($PaintAppLocation)" -Destination "$(Split-Path $PaintIconLocation)"
 }
-[string]$PaintAppHKCR=(Get-ChildItem "Registry::HKCR\AppX*" | Where-Object {(Get-ItemProperty -LiteralPath "Registry::$($_.Name)\Application" -ErrorAction SilentlyContinue).ApplicationName -like "*Microsoft.Paint*"})[0]
+[string]$PaintAppHKCR=(Get-ChildItem "Registry::HKCR\AppX*" | Where-Object {(Get-ItemProperty -LiteralPath "Registry::$($_.Name)\Application" -ea 0).ApplicationName -like "*Microsoft.Paint*"})[0]
 # > Find file location of Windows Terminal app and copy the profile icons out
 [string]$WTLocation="$($(Get-AppxPackage Microsoft.WindowsTerminal).InstallLocation)"
 [string]$PowerShellIconPNG="$($env:LocalAppdata)\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\ProfileIcons\{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.scale-200.png"
@@ -108,15 +104,6 @@ if(!(Test-Path "$($WSLIconPNG)")) {
 }
 # > Find file location of WMP UWP
 [bool]$WMPUWPInstalled=((Get-AppxPackage *ZuneMusic*).count -gt 0)
-# > Find file location of Python
-[string[]]$PythonVerInstalled=(Get-AppxPackage "*.Python.*").Name
-if($PythonVerInstalled.Count -gt 0) { # If Python app is installed
-    [string]$PythonInstallLoc="$((Get-AppxPackage "$($PythonVerInstalled)").InstallLocation)\python.exe"
-    [string]$PythonFileHKCR="HKCR\py_auto_file" #(Get-ChildItem "Registry::HKCR\AppX*" | Where-Object {(Get-ItemProperty -LiteralPath "Registry::$($_)" -ErrorAction SilentlyContinue).'(default)' -like "Python File*"})[0] # Includes HKCR\ prefix
-}
-else { # Python app not installed, probably in WSL?
-    Remove-Item "Registry::HKCR\py_auto_file" -Force -ErrorAction SilentlyContinue
-}
 # > Find file location of WSA
 [string]$WSAAppDataDir="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe"
 if(Test-Path $WSAAppDataDir) { # WSA Installed
@@ -131,8 +118,9 @@ if(Test-Path $WSAAppDataDir) { # WSA Installed
     if($WSAIconsDistro -eq 0) {
         $WSAIconsDistro=$WSAIcons
     }
-    if(Test-Path "$($WSALocation)") {
-        MkDirCLSID "{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}" -Name "Android" -Icon "`"$($WSAIconsDistro[1])`"" -FolderType 6 -IsShortcut
+    [string]$WSACLSID="{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}"
+    if((Test-Path "$($WSALocation)") -and !(Test-Path "Registry::HKCR\CLSID\$($WSACLSID)")) {
+        MkDirCLSID $WSACLSID -Name "Android" -Icon "`"$($WSAIconsDistro[1])`"" -FolderType 6 -IsShortcut
         [string]$StartWSAAppCommandPrefix="$($env:Localappdata)\Microsoft\WindowsApps\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\WsaClient.exe /launch wsa://"
         [string[]]$WSAContextMenu=@("open","cmd")
         [string[]]$WSAContextMenuIcon=@("`"$($WSAIcons[1])`"","$($TerminalIconICO)")
@@ -161,13 +149,16 @@ if(Test-Path $WSAAppDataDir) { # WSA Installed
     }
 }
 else { # WSA not installed
-    MkDirCLSID "{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}" -RemoveCLSID
+    MkDirCLSID $WSACLSID -RemoveCLSID
 }
+
 # > Remove PowerRename
 # if((Get-AppxPackage Microsoft.PowerToys.PowerRenameContextMenu).count -gt 0) {
-#     Remove-Item "Registry::HKCR\AllFilesystemObjects\shellex\ContextMenuHandlers\PowerRenameEx" -Force -ErrorAction SilentlyContinue
+#     Remove-Item "Registry::HKCR\AllFilesystemObjects\shellex\ContextMenuHandlers\PowerRenameEx" -Force -ea 0
 # }
-# Use system time as UTC
+#Generate namespaces for cloud drives and custom folders
+GenerateCustomNamespace @("Dropbox","Google Drive","rClone","Games")
+# Use BIOS time as UTC
 SetValue "HKLM\SYSTEM\ControlSet001\Control\TimeZoneInformation" -Name "RealTimeIsUniversal" -Type 4 -Value 1
 # NVidia Shadow Play - hide mouse button
 $nVidiaShadowPlayReg=@'
@@ -177,22 +168,18 @@ Windows Registry Editor Version 5.00
 "{079461D0-727E-4C86-A84A-CBF9A0D2E5EE}"=hex:01,00,00,00
 '@
 ImportReg $nVidiaShadowPlayReg
-# Check if MS Office is installed
-[bool]$MSOfficeInstalled=$false
-foreach($ProgramFilesLoc in @("Program Files","Programe Files (x86)")) {
-    [string]$MSOfficeLoc="C:\$($ProgramFilesLoc)\Microsoft Office\root\Office16\Word.exe" # Need to check to differentiate from when only Microsoft OneDrive is installed
-    if(Test-Path "$($MSOfficeLoc)") {
-        $MSOfficeInstalled=$true
-        break
-    }
-}
-# Check if LibreOffice is installed
-[bool]$LibreOfficeInstalled=$false
-if(Test-Path "C:\Program Files\LibreOffice\program\soffice.exe") { 
-    $LibreOfficeInstalled=$true
-}
+# Check which Office program is installed
+[bool]$MSOfficeInstalled=(Test-Path "C:\Program Files*\Microsoft Office\root\Office16\Word.exe")
+[bool]$LibreOfficeInstalled=(Test-Path "C:\Program Files\LibreOffice\program\soffice.exe")
+[bool]$OnlyOfficeInstalled=(Test-Path "C:\Program Files\ONLYOFFICE\DesktopEditors\DesktopEditors.exe")
+# ------- Check default browser ---------
+[string[]]$DefaultBrowser=(CheckDefaultBrowser)
+[string]$BrowserPath=$DefaultBrowser[0]
+[string]$BrowserOpenAction=$DefaultBrowser[1]
+[string]$BrowserIcon=$DefaultBrowser[2]
+[string]$OpenInBrowserText=$DefaultBrowser[3]
 # -------Get privileges to take ownership-------
-Write-Host "Preparing to take ownership of keys owned by SYSTEM or TrustedInstaller"
+Write-Host "Preparing to take ownership of keys owned by SYSTEM or TrustedInstaller" # Python equivalent: print("...")
 #Take ownership of keys owned by SYSTEM or TrustedInstaller
 [string[]]$LockedHKCRMain=@(`
     "HKCR\DesktopBackground\Shell\Display",`
@@ -249,7 +236,7 @@ foreach($LockedKey in $LockedHKCRMain) {
 }
 [string[]]$LockedHKCR= $LockedHKCRMain + $LockedHKCRSub
 # Windows Media Player (Legacy) file association.
-[bool]$WMPLegacyInstalled=((Get-ItemProperty -Path "Registry::HKLM\Software\Microsoft\Active Setup\Installed Components\{22d6f312-b0f6-11d0-94ab-0080c74c7e95}" -ErrorAction SilentlyContinue).isinstalled -eq 1)
+[bool]$WMPLegacyInstalled=((Get-ItemProperty -Path "Registry::HKLM\Software\Microsoft\Active Setup\Installed Components\{22d6f312-b0f6-11d0-94ab-0080c74c7e95}" -ea 0).isinstalled -eq 1)
 if($WMPLegacyInstalled) {
     [string[]]$WMPHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {($_ -like "WMP11.AssocFile.*") -and (Test-Path "Registry::HKCR\$($_)\shell\play")})
     $WMPLockedHKCR=[string[]]::new($WMPHKCR.length)
@@ -270,25 +257,20 @@ foreach($Arch in @("","\WOW6432Node")) {
 }
 [string[]]$AllLockedKeys= $LockedHKLM + $LockedHKCR + $WMPLockedHKCR
 foreach($LockedKey in $AllLockedKeys) {
-    if((Test-Path "Registry::$($LockedKey)") -and ((Get-Acl "Registry::$($LockedKey)" -ErrorAction SilentlyContinue).Owner -NotLike "$($env:UserDomain)\$($env:Username)")) {
+    if((Test-Path "Registry::$($LockedKey)") -and ((Get-Acl "Registry::$($LockedKey)" -ea 0).Owner -NotLike "$($env:UserDomain)\$($env:Username)")) {
         TakeRegOwnership "$($LockedKey)" | Out-Null
     }
 }
-# ------- Check default browser ---------
-[string[]]$DefaultBrowser=(CheckDefaultBrowser)
-[string]$BrowserPath=$DefaultBrowser[0]
-[string]$BrowserOpenAction=$DefaultBrowser[1]
-[string]$BrowserIcon=$DefaultBrowser[2]
-[string]$OpenInBrowserText=$DefaultBrowser[3]
 # ————————FILE ASSOCIATIONS—————————
 # --------Any file---------
-# ! Cannot use SetValue function, as the path contains wildcard character *. Must use -LiteralPath
-New-ItemProperty -LiteralPath "Registry::HKCR\*\shell\pintohomefile" -Name "Icon" -PropertyType "string" -Value "shell32.dll,-322" -ErrorAction SilentlyContinue
-if(!($?)) { 
-    Set-ItemProperty -LiteralPath "Registry::HKCR\*\shell\pintohomefile" -Name "Icon" -Value "shell32.dll,-322" -ErrorAction SilentlyContinue
+try {
+    New-ItemProperty -LiteralPath "Registry::HKCR\*\shell\pintohomefile" -Name "Icon" -PropertyType "string" -Value "shell32.dll,-322" -ea 0 # Cannot use SetValue function, as the path contains wildcard character *. Must use -LiteralPath. Add SilentlyContinue to suppress error when it's already written.
+}
+catch { # If the last run returns an error
+    Set-ItemProperty -LiteralPath "Registry::HKCR\*\shell\pintohomefile" -Name "Icon" -Value "shell32.dll,-322" -ea 0
 }
 # --------Java files--------
-[bool]$JREInstalled=((Get-Command javaw -ErrorAction SilentlyContinue).name -like "javaw.exe")
+[bool]$JREInstalled=((Get-Command javaw -ea 0).name -like "javaw.exe")
 if($JREInstalled) {
     CreateFileAssociation "jarfile" -ShellOperations "open" -MUIVerb "@shell32.dll,-12710" -Icon "javaw.exe"
 }
@@ -305,8 +287,7 @@ if($ZipAppInstalled -like "PeaZip") {
     Set-ItemProperty -LiteralPath "Registry::HKCR\*\shell\PeaZip" -Name "SubCommands" -Value "PeaZip.ext2browseasarchive; PeaZip.add2separate; PeaZip.add2separate7zencrypt; PeaZip.analyze; PeaZip.add2wipe; "
     Set-ItemProperty -LiteralPath "Registry::HKCR\*\shell\PeaZip" -Name 'Icon' -Value "C:\Program files\Peazip\peazip.exe"
     <# PeaZip Commands include:
-    PeaZip.ext2main; PeaZip.ext2here; PeaZip.ext2smart; PeaZip.ext2folder; PeaZip.ext2test; PeaZip.ext2browseasarchive; PeaZip.ext2browsepath; PeaZip.add2separate; PeaZip.add2separatesingle; PeaZip.add2separatesfx; PeaZip.add2separate7z; PeaZip.add2separate7zfastest; PeaZip.add2separate7zultra; PeaZip.add2separatezip; PeaZip.add2separatezipfastest; PeaZip.add2separate7zencrypt; PeaZip.add2separatezipmail; PeaZip.add2split; PeaZip.add2convert; PeaZip.analyze; PeaZip.add2wipe; 
-    #>
+    PeaZip.ext2main; PeaZip.ext2here; PeaZip.ext2smart; PeaZip.ext2folder; PeaZip.ext2test; PeaZip.ext2browseasarchive; PeaZip.ext2browsepath; PeaZip.add2separate; PeaZip.add2separatesingle; PeaZip.add2separatesfx; PeaZip.add2separate7z; PeaZip.add2separate7zfastest; PeaZip.add2separate7zultra; PeaZip.add2separatezip; PeaZip.add2separatezipfastest; PeaZip.add2separate7zencrypt; PeaZip.add2separatezipmail; PeaZip.add2split; PeaZip.add2convert; PeaZip.analyze; PeaZip.add2wipe #>
     [string[]]$PeaZipHKCR=(Get-ChildItem Registry::HKCR\PeaZip.*).Name # Include HKCR\ prefix
     CreateFileAssociation $($PeaZipHKCR+@("Applications\PEAZIP.exe")) -DefaultIcon "imageres.dll,-174" -ShellOperations "open" -ShellOpDisplayName "Mit PeaZip browsen" -Icon "`"C:\Program Files\PeaZip\peazip.exe`",0" -Command "`"C:\Program Files\PeaZip\PEAZIP.EXE`" `"%1`""
     CreateFileAssociation "CompressedFolder" -DefaultIcon "imageres.dll,-174" -ShellOperations "open2" -ShellOpDisplayName "Mit PeaZip browsen" -Icon "`"C:\Program Files\PeaZip\peazip.exe`",0" -Command "`"C:\Program Files\PeaZip\PEAZIP.EXE`" `"%1`""
@@ -315,7 +296,7 @@ if($ZipAppInstalled -like "PeaZip") {
         Copy-Item -LiteralPath "Registry::HKCR\*\shell\PeaZip" -Destination "Registry::$($Key)\shell" -Force
         CreateFileAssociation "$($Key)" -ShellOperations "PeaZip" -Icon "zipfldr.dll,-101" -MUIVerb "@zipfldr.dll,-10148"
         SetValue "$($Key)\shell\PeaZip" -Name "SubCommands" -Value "PeaZip.ext2main; PeaZip.ext2here; PeaZip.ext2folder; PeaZip.add2split; PeaZip.add2convert; PeaZip.add2separate7zencrypt; PeaZip.analyze; PeaZip.add2wipe; "
-        Remove-Item -Path "Registry::$($Key)\shell\PeaZipCompressedFolder" -Force -Recurse -ErrorAction SilentlyContinue
+        Remove-Item -Path "Registry::$($Key)\shell\PeaZipCompressedFolder" -Force -Recurse -ea 0
     }
     Copy-Item -LiteralPath "Registry::HKCR\*\shell\PeaZip" -Destination "Registry::HKCR\AllFilesystemObjects\shell" -Force
     [string[]]$PeaZipCommandHKCR=(Get-ChildItem Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CommandStore\shell\PeaZip.*).Name # Include HKLM\..... whole path
@@ -364,7 +345,49 @@ elseif($ZipAppInstalled -like "7-Zip") {
     -Icon "`"C:\Program Files\7-Zip\7zFM.exe`",0" `
     -Command "`"C:\Program Files\7-Zip\7zFM.exe`" `"%1`""
 }
-# ________________ VS Code related _________________________
+# ------- PDF Document -------
+[string[]]$BrowserPDFs=@("MSEdgePDF")
+CreateFileAssociation $BrowserPDFs -ShellOperations "open" -Icon "ieframe.dll,-31065" -MUIVerb "@ieframe.dll,-21819"
+if($BrowserPath -like "*chrome.exe*") {
+    $BrowserPDFs = $BrowserPDFs + @("ChromePDF")
+    CreateFileAssociation "ChromePDF" -FileAssoList ".pdf" -DefaultIcon "$($env:Userprofile)\Links\Acrobat.ico" -ShellOperations @("open") -MUIVerb @("@SearchFolder.dll,-10496") -Icon @("`"$($BrowserPath)`",0") -Command @("`"$($BrowserPath)`" `"%1`"") # If Adobe Acrobat is not working: Add  before %1
+}
+# SumatraPDF related
+[string]$SumatraPDFLoc=$(CheckInstallPath "SumatraPDF\sumatrapdf.exe")
+[bool]$SumatraPDFInstalled=$(Test-Path "$($SumatraPDFLoc)")
+if($SumatraPDFInstalled) {
+    [string[]]$SumatraPDFHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {$_ -like "SumatraPDF.*"})
+    $SumatraPDFHKCR = $SumatraPDFHKCR + "Applications\SumatraPDF.exe"
+    foreach($Key in $SumatraPDFHKCR) { # $SumatraPDFHKCR do not contain HKCR\ prefix
+        if($Key -like "*epub*") {
+            [int]$IconNr=3
+        }
+        elseif($Key -like "*cb?") {
+            [int]$IconNr=4
+        }
+        else {
+            [int]$IconNr=2
+        }
+        [string]$SumatraICO="`"$($SumatraPDFLoc)`",-$($IconNr)"
+        CreateFileAssociation "$($Key)" -DefaultIcon "$($SumatraICO)" -ShellOperations "open" -MUIVerb "@appmgr.dll,-652" -Icon "`"$($SumatraPDFLoc)`",0"
+        if($Key -like "*chm") { # CHM Help File
+            CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-99" -ShellOperations @("open","open2") -MUIVerb @("@appmgr.dll,-652","@srh.dll,-1359") -Icon ("","C:\Windows\hh.exe") -Command @("","C:\Windows\hh.exe `"$1`"")
+        }
+        if(Test-Path "Registry::HKCR\$($Key)\shell\print") {
+            CreateFileAssociation "$($Key)" -ShellOperations "print" -LegacyDisable 1 -Icon "ddores.dll,-2414"
+        }
+        if(Test-Path "Registry::HKCR\$($Key)\shell\printto") {
+            CreateFileAssociation "$($Key)" -ShellOperations "printto" -LegacyDisable 1 -Icon "ddores.dll,-2413"
+            [string]$KeyWithPrint="$($Key)"
+        }
+    }
+    CreateFileAssociation $BrowserPDFs -ShellOperations @("open2") -Icon @("`"$($SumatraPDFLoc)`",0") -ShellOpDisplayName @("Mit SumatraPDF lesen") -Command @("`"$($SumatraPDFLoc)`" `"%1`"") #"ddores.dll,-2414"
+    Copy-Item -Path "Registry::HKCR\$($Key)\shell\open\command" -Destination "Registry::HKCR\MSEdgePDF\shell\open2" -Force
+    foreach($PrintAction in @("print","printto")) {
+        Copy-Item -Path "Registry::HKCR\$($KeyWithPrint)\shell\$($PrintAction)" -Destination "Registry::HKCR\MSEdgePDF\shell" -Force -Recurse -ea 0
+    }
+}
+# ________________ VS Code related __________________
 # Check if VS Code is installed systemwide or for current user only
 [string[]]$VSCodeVersion=@("Microsoft VS Code\code.exe","Microsoft VS Code Insiders\Code - Insiders.exe")
 for ($i=0;$i -lt $VScodeVersion.count;$i++) {
@@ -378,48 +401,59 @@ for ($i=0;$i -lt $VScodeVersion.count;$i++) {
 if($VSCodeLocation -like "*Insiders*") {
     [string]$VSCodeVerHKCR="VSCodeInsiders"
 }
+# ------- Python script -------
+# > Find file location of Python
+[string]$PythonEXELocation=(where.exe python.exe)
+if($lastexitcode -eq 1) { # Python not installed
+    Remove-Item "Registry::HKCR\py_auto_file" -Force -Recurse -ea 0
+}
+elseif($PythonEXELocation -like "C:\Program Files*Python*python.exe") { # Python installed as x86 app
+    $PythonInstallLoc=$PythonEXELocation
+}
+elseif($PythonEXELocation -like "$($env:LOCALAPPDATA)\Microsoft\WindowsApps\python.exe") { # Python installed as UWP app
+    $PythonApp=(Get-AppxPackage PythonSoftwareFoundation.Python*)[0]
+    [string]$PythonInstallLoc="$($PythonApp.InstallLocation)\python.exe"
+    [string]$PythonScriptsLoc=(Get-Item "$($env:LocalAppdata)\Packages\$($PythonApp.PackageFamilyName)\LocalCache\local-packages\Python*\Scripts").FullName
+    [string]$PythonIconPath="$($env:LOCALAPPDATA)\Packages\$($PythonApp.PackageFamilyName)\python.exe"
+    if(!(Test-Path $PythonIconPath)) {
+        Copy-Item "$($PythonInstallLoc)" "$(Split-Path -Path $PythonIconPath)"
+    }
+    try {
+        [string]$PythonFileHKCR=((Get-ItemProperty "Registry::HKCR\.py\OpenWithProgids\") | get-member | Where-Object {$_.Name -like "AppX*"})[0].Name # Does not include HKCR itself
+    }
+    catch {
+        [string]$PythonFileHKCR="py_auto_file"
+    }
+    CreateFileAssociation "$($PythonFileHKCR)" -shelloperations @("open","edit") -Icon @("$($PythonIconPath)","`"$($VSCodeLocation)`",0") -Command ("","`"$($VSCodeLocation)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","")
+}
 # -----------Text files, VS Code related--------------
 # ------- All VSCode files ------
 [string[]]$VSCHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {$_ -like "$($VSCodeVerHKCR).*"})
 foreach($Key in $VSCHKCR) {
-    if((Get-ItemProperty "Registry::HKCR\$($Key)\shell\open\command" -ErrorAction SilentlyContinue).'(default)' -like "*$($VSCodeLocation)*") {
+    if(Test-Path "Registry::HKCR\$($Key)\shell\open\command" -ea 0) { # Use this if argument to skip VS Code files without "command" subkey
         CreateFileAssociation "$($Key)" -ShellOperations "open" -Icon "`"$($VSCodeLocation)`",0" -MUIVerb "@shell32.dll,-37398" -Extended 0
-    }
-    else {
-        # Do nothing for VS Code files without "command" subkey. Those are probably defined somewhere else.
-    }
+    }  # Else: Do nothing for VS Code files without "command" subkey. Those are probably defined somewhere else.
 }
 CreateKey "HKCR\$($VSCodeVerHKCR).txt\DefaultIcon" -StandardValue "imageres.dll,-19"
 foreach($VSCodeAppHKCR in @("Code.exe","Code - Insiders.exe")) {
     if(Test-Path "Registry::HKCR\Applications\$($VSCodeAppHKCR)") {
-        CreateFileAssociation "Applications\$($VSCodeAppHKCR)" -ShellOperations "open" -Icon "`"$($VSCodeLocation)`",0" -MUIVerb "@certmgr.dll,-291"
+        CreateFileAssociation "Applications\$($VSCodeAppHKCR)" -ShellOperations "open" -Icon "`"$($VSCodeLocation)`",0" -MUIVerb "@certmgr.dll,-291" -Command "`"$($VSCodeLocation)`" `"%1`""
     }
 }
 # Give "Text" property to all VS Code related files
 foreach($FileExt in (Get-ChildItem "Registry::HKCR\.*").Name) {
-    [string]$ProgID=(Get-ItemProperty -LiteralPath "Registry::$($FileExt)\OpenWithProgIds" -ErrorAction SilentlyContinue) 
+    [string]$ProgID=(Get-ItemProperty -LiteralPath "Registry::$($FileExt)\OpenWithProgIds" -ea 0) 
     if(($ProgID -like "*$($VSCodeVerHKCR).*") -and (-not (Test-Path "Registry::$($FileExt)\PersistentHandler"))) {
-        # Change item type to text. Let Windows Search index the items
+        # Change item type to text in order to let Windows index the values
         CreateKey "$($FileExt)\PersistentHandler" -StandardValue "{5e941d80-bf96-11cd-b579-08002b30bfeb}"
     }
 }
 # --------Windows Update package (MSU)--------
-CreateFileAssociation "Microsoft.System.Update.1" `
-    -ShellOperations "open" `
-    -Icon "wusa.exe,-101" `
-    -MUIVerb "@ActionCenter.dll,-2107"
+CreateFileAssociation "Microsoft.System.Update.1" -ShellOperations "open" -Icon "wusa.exe,-101" -MUIVerb "@ActionCenter.dll,-2107"
 # ---------Windows folders--------
-CreateFileAssociation "Folder" `
-    -ShellOperations @("open","opennewwindow","opennewtab","opennewprocess","pintohome") `
-    -Icon @("main.cpl,-606","imageres.dll,-5322","imageres.dll,-116","","shell32.dll,-322") `
-    -LegacyDisable @(0,0,0,1,0) `
-    -MUIVerb @("@shell32.dll,-32960","","","","") `
-    -TypeName "@shell32.dll,-9338"
+CreateFileAssociation "Folder" -ShellOperations @("open","opennewwindow","opennewtab","opennewprocess","pintohome") -Icon @("main.cpl,-606","imageres.dll,-5322","imageres.dll,-116","","shell32.dll,-322") -LegacyDisable @(0,0,0,1,0) -MUIVerb @("@shell32.dll,-32960","","","","") -TypeName "@shell32.dll,-9338"
 # ---------Hard drives--------
-CreateFileAssociation "Drive" `
-    -ShellOperations @("manage-bde","encrypt-bde","encrypt-bde-elev","pintohome") `
-    -Icon @("shell32.dll,-194","shell32.dll,-194","shell32.dll,-194","shell32.dll,-322")
-
+CreateFileAssociation "Drive" -ShellOperations @("manage-bde","encrypt-bde","encrypt-bde-elev","pintohome") -Icon @("shell32.dll,-194","shell32.dll,-194","shell32.dll,-194","shell32.dll,-322")
 # --------Directories--------
 # Change "Linux (WSL)" Entry icon and location
 if(Test-Path "Registry::HKCR\CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}") {
@@ -431,10 +465,10 @@ if(Test-Path "Registry::HKCR\CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}") {
     if($WSLIconDistro.length -eq 0) {
         $WSLIconDistro=@($WSLIconPNG,$WSLLocation)
     }
-    MkDirCLSID "{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -FolderType 6 -Name "$($DistroName)" -Pinned 0 -TargetPath "\\wsl.localhost\$($DistroName.Replace(' ','-'))" -Icon "$($WSLIconDistro[1])" -MkInHKLM
+    MkDirCLSID "{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -FolderType 6 -Name "$($DistroName)" -Pinned 0 -TargetPath "\\wsl.localhost\$($DistroName.Replace(' ','-'))" -Icon "$($WSLIconDistro[1])"
     CreateFileAssociation "CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ShellOperations "open2" -Icon "$($TerminalIconICO)" -Command "wt.exe -p `"$($DistroName)`""
     # Remove "Linux" Entry from desktop
-    Remove-Item -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ErrorAction SilentlyContinue
+    Remove-Item -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ea 0
 }
 [string[]]$PowerShellDef=@("","powershell.exe,0") # [0]: Display Name; [1]: Icon file
 # Hide "Open in terminal" entry to unify how the menu looks.
@@ -458,7 +492,7 @@ CreateFileAssociation @("Directory\Background","Directory","LibraryFolder\backgr
         "",` # git-gui no need to define
         "wt.exe  -d `"%V `" -p `"PowerShell`"",`
         "PowerShell -windowstyle hidden -Command `"Start-Process wt.exe -ArgumentList '-d `"`"%V `"`"`"' -Verb RunAs`"","wt.exe -d `"%V `" -p `"$($DistroName)`"")
-Remove-Item -Path "Registry::HKCR\Directory\Background\DefaultIcon" -ErrorAction SilentlyContinue # Not needed
+Remove-Item -Path "Registry::HKCR\Directory\Background\DefaultIcon" -ea 0 # Not needed
 # Admin commands don't work in Library Folders, so disable them in Libraries
 CreateFileAssociation "LibraryFolder\background" -ShellOperations @("VSCodeWithAdmin","PowerShellWithAdmin") -LegacyDisable @(1,1) 
 foreach($GitContextMenu in @("git_shell","git_bash"))
@@ -527,7 +561,7 @@ if($MPlayersInstalled[0]) { # VLC installed
         if(@('.bin','.dat','.','.iso') -contains $VLCExtension) { # Skip VLC.VLC.Document
             continue
         }
-        [string]$VLCFileType=(Get-ItemProperty -LiteralPath "Registry::HKCR\$($VLCExtension)" -ErrorAction SilentlyContinue).'PerceivedType'
+        [string]$VLCFileType=(Get-ItemProperty -LiteralPath "Registry::HKCR\$($VLCExtension)" -ea 0).'PerceivedType'
         if($VLCFileType -like "audio") { # VLC Audio File
             [string]$VLCFileIcon="imageres.dll,-1026" # "imageres.dll,-22"
             [string]$VLCFileName="@wiashext.dll,-279"
@@ -583,7 +617,7 @@ if($MPlayersInstalled[0]) { # VLC installed
 elseif($MPlayersInstalled[1]) { # WMP Legacy installed
     Write-Host "$($MPlayers[1]) installed"
     foreach($Key in $WMPHKCR) { # WMPHKCR includes "HKCR\" at the beginning
-        if((Get-ItemProperty -LiteralPath "Registry::$($Key)\shell\play" -ErrorAction SilentlyContinue)."Icon" -like "imageres.dll,-5201") {
+        if((Get-ItemProperty -LiteralPath "Registry::$($Key)\shell\play" -ea 0)."Icon" -like "imageres.dll,-5201") {
             break
         }
         CreateFileAssociation $Key -ShellOperations @("Enqueue","play") `
@@ -592,7 +626,7 @@ elseif($MPlayersInstalled[1]) { # WMP Legacy installed
     }
 }
 elseif($MPlayersInstalled[2]) { # WMP UWP installed
-    [string]$WMPAppHKCR=(Get-ChildItem "Registry::HKCR\AppX*" | Where-Object {(Get-ItemProperty -LiteralPath "Registry::$($_)\Application" -ErrorAction SilentlyContinue).ApplicationName -like "*Microsoft.ZuneMusic*"})[0]
+    [string]$WMPAppHKCR=(Get-ChildItem "Registry::HKCR\AppX*" | Where-Object {(Get-ItemProperty -LiteralPath "Registry::$($_)\Application" -ea 0).ApplicationName -like "*Microsoft.ZuneMusic*"})[0]
     CreateFileAssociation "$($WMPAppHKCR)" -ShellOperations @("open","enqueue","play") -ShellDefault "play" -LegacyDisable @(1,0,0) -Icon @("","shell32.dll,-16752","imageres.dll,-5201") -DefaultIcon "imageres.dll,-134" -MUIVerb @("","@shell32.dll,-37427","")
 }
 # --------EXE File--------
@@ -622,7 +656,8 @@ if(Test-Path "Registry::HKCR\CheatEngine\DefaultIcon") {
     [string]$CheatEnginePath=(Get-ItemProperty -LiteralPath "Registry::HKCR\CheatEngine\DefaultIcon").'(default)' -replace ',0',''
     CreateFileAssociation "CheatEngine" -shelloperations @("open","edit") -Icon @("$($CheatEnginePath)","`"$($VSCodeLocation)`",0") -Command @("","`"$($VSCodeLocation)`" `"%1`"")
 }
-
+# --------BAT, CMD, COM script-------
+CreateFileAssociation @("batfile","cmdfile","comfile") -ShellOperations @("open","print","edit","runas") -Icon @("cmd.exe,0","DDOres.dll,-2414","`"$($VSCodeLocation)`",0","cmd.exe,0") -MUIVerb @("@shell32.dll,-12710","","","") -Command @("","","`"$($VSCodeLocation)`" `"%1`"","") -Extended @(0,1,0,0) -LegacyDisable @(0,1,0,0) -DefaultIcon "cmd.exe,0" ` # "$($VSCodeIconsLoc)\shell.ico"
 # --------VBE, VBS and JSE (JavaScript) Script--------
 if(Test-Path "C:\Windows\System32\wscript.exe") { # If VBS as a legacy component is not disabled yet.
     CreateFileAssociation @("VBSFile","VBEFile","JSEFile") ` # "$($VSCodeVerHKCR).vb",
@@ -633,87 +668,27 @@ if(Test-Path "C:\Windows\System32\wscript.exe") { # If VBS as a legacy component
     -FileAssoList @("vb","vbs","vbe","jse") `
     -Extended @(0,0,1,0) -LegacyDisable @(0,0,1,0)
 }
-# --------BAT, CMD, COM script-------
-CreateFileAssociation @("BATFile","CMDFile","COMFile") -ShellOperations @("open","print","edit","runas") -DefaultIcon "cmd.exe,0" ` # "$($VSCodeIconsLoc)\shell.ico"
--Icon @("cmd.exe,0","DDOres.dll,-2414","`"$($VSCodeLocation)`",0","cmd.exe,0") -MUIVerb @("@shell32.dll,-12710","","","") -Command @("","","`"$($VSCodeLocation)`" `"%1`"","") -Extended @(0,1,0,0) -LegacyDisable @(0,1,0,0)
 # --------Registry file--------
 CreateFileAssociation "regfile" -ShellOperations @("open","edit","print") `
     -Icon @("regedit.exe,0","`"$($VSCodeLocation)`",0","DDORes.dll,-2413") `
     -Extended @(0,0,1) -ShellDefault "open"`
     -command @("","`"$($VSCodeLocation)`" `"%1`"","")
-# ------- Python script -------
-if(($PythonVerInstalled.Count -gt 0)) {
-    CreateFileAssociation @("$($PythonFileHKCR)") -shelloperations @("open","edit") -Icon @("$($PythonInstallLoc)","`"$($VSCodeLocation)`",0") -Command ("python.exe `"%1`"","`"$($VSCodeLocation)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","")
-}
-else {
-    Remove-Item "Registry::$($PythonFileHKCR)" -Force -Recurse
-}
 # -------XML Document-------
-Remove-ItemProperty -Path "Registry::HKCR\.xml" -Name "PreceivedType" -ErrorAction SilentlyContinue
+Remove-ItemProperty -Path "Registry::HKCR\.xml" -Name "PreceivedType" -ea 0
 foreach($ML_Ext in @("xml","htm","html")) {    
-    Remove-ItemProperty -Path "Registry::HKCR\.$($ML_Ext)\OpenWithProgids" -Name "MSEdgeHTM" -ErrorAction SilentlyContinue 
+    Remove-ItemProperty -Path "Registry::HKCR\.$($ML_Ext)\OpenWithProgids" -Name "MSEdgeHTM" -ea 0 
 }
-CreateFileAssociation @("xmlfile","$($VSCodeVerHKCR).xml") -FileAssoList ".xml" -DefaultIcon "msxml3.dll,-128" `
-    -ShellOperations @("open","edit") -ShellDefault "edit" `
-    -Icon @("$($BrowserIcon)","`"$($VSCodeLocation)`",0") -MUIVerb @("$($OpenInBrowserText)","")`
-    -Command @("$($BrowserOpenAction)","`"$($VSCodeLocation)`" `"%1`"") `
-    -CommandId @("IE.File","") `
-    -DelegateExecute @("{17FE9752-0B5A-4665-84CD-569794602F5C}","")
-Remove-Item "Registry::HKCR\xmlfile\ShellEx\IconHandler" -ErrorAction SilentlyContinue
+CreateFileAssociation @("xmlfile","$($VSCodeVerHKCR).xml","xml_auto_file") -FileAssoList ".xml" -DefaultIcon "msxml3.dll,-128" -ShellOperations @("open","edit") -ShellDefault "edit" -Icon @("$($BrowserIcon)","`"$($VSCodeLocation)`",0") -MUIVerb @("$($OpenInBrowserText)","")-Command @("$($BrowserOpenAction)","`"$($VSCodeLocation)`" `"%1`"") -CommandId @("IE.File","") -DelegateExecute @("{17FE9752-0B5A-4665-84CD-569794602F5C}","")
+Remove-Item "Registry::HKCR\xmlfile\ShellEx\IconHandler" -ea 0
 # ------- PS1 Script ------
 CreateFileAssociation @("Microsoft.PowerShellScript.1") -FileAssoList @("ps1")  -DefaultIcon "$($VSCodeIconsLoc)\powershell.ico" -ShellOperations @("open","edit","runas") -Icon @("scrptadm.dll,-7","`"$($VSCodeLocation)`",0","C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe,1") -MUIVerb @("@`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`",-108","","") -Command @("`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`"  `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`"","`"$($VSCodeLocation)`" `"%1`"","`"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`" `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`" -Verb RunAs")
 CreateFileAssociation "SystemFileAssociations\.ps1" -ShellOperations "Windows.PowerShell.Run" -LegacyDisable $true
-Remove-Item "Registry::HKCR\Microsoft.PowerShellScript.1\shell\0" -ErrorAction SilentlyContinue
+Remove-Item "Registry::HKCR\Microsoft.PowerShellScript.1\shell\0" -ea 0
 # ------- LOG File ------
 SetValue "HKCR\.log" -Name "Content Type" -Value "text/plain"
 SetValue "HKCR\.log" -Name "PerceivedType" -Value "text"
 # ------- Linux BASH -------
 CreateFileAssociation @("bashfile") -FileAssoList @("sh","bash") -ShellOperations @("open","edit") -Icon @("$($WSLLocation)","$($VSCodeLocation)") -Command @("wsl.exe bash `$(wslpath `"%1`")","`"$($VSCodeLocation)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","") -DefaultIcon "$($VSCodeIconsLoc)\shell.ico"
-# ------- PDF Document -------
-[string[]]$BrowserPDFs=@("MSEdgePDF")
-CreateFileAssociation $BrowserPDFs -ShellOperations "open" -Icon "ieframe.dll,-31065" -MUIVerb "@ieframe.dll,-21819"
-if($BrowserPath -like "*chrome.exe*") {
-    $BrowserPDFs = $BrowserPDFs + @("ChromePDF")
-    CreateFileAssociation "ChromePDF" -FileAssoList ".pdf" -DefaultIcon "$($env:Userprofile)\Links\Acrobat.ico" `
-    -ShellOperations @("open") -MUIVerb @("@SearchFolder.dll,-10496") `
-    -Icon @("`"$($BrowserPath)`",0") `
-    -Command @("`"$($BrowserPath)`" `"%1`"")
-}
-# SumatraPDF related
-[string]$SumatraPDFLoc=$(CheckInstallPath "SumatraPDF\sumatrapdf.exe")
-[bool]$SumatraPDFInstalled=$(Test-Path "$($SumatraPDFLoc)")
-if($SumatraPDFInstalled) {
-    [string[]]$SumatraPDFHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {$_ -like "SumatraPDF.*"})
-    $SumatraPDFHKCR = $SumatraPDFHKCR + "Applications\SumatraPDF.exe"
-    foreach($Key in $SumatraPDFHKCR) { # $SumatraPDFHKCR do not contain HKCR\ prefix
-        if($Key -like "*epub*") {
-            [int]$IconNr=3
-        }
-        elseif($Key -like "*cb?") {
-            [int]$IconNr=4
-        }
-        else {
-            [int]$IconNr=2
-        }
-        [string]$SumatraICO="`"$($SumatraPDFLoc)`",-$($IconNr)"
-        CreateFileAssociation "$($Key)" -DefaultIcon "$($SumatraICO)" -ShellOperations "open" -MUIVerb "@appmgr.dll,-652" -Icon "`"$($SumatraPDFLoc)`",0"
-        if($Key -like "*chm") { # CHM Help File
-            CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-99" -ShellOperations @("open","open2") -MUIVerb @("@appmgr.dll,-652","@srh.dll,-1359") -Icon ("","C:\Windows\hh.exe") -Command @("","C:\Windows\hh.exe `"$1`"")
-        }
-        if(Test-Path "Registry::HKCR\$($Key)\shell\print") {
-            CreateFileAssociation "$($Key)" -ShellOperations "print" -LegacyDisable 1 -Icon "ddores.dll,-2414"
-        }
-        if(Test-Path "Registry::HKCR\$($Key)\shell\printto") {
-            CreateFileAssociation "$($Key)" -ShellOperations "printto" -LegacyDisable 1 -Icon "ddores.dll,-2413"
-            [string]$KeyWithPrint="$($Key)"
-        }
-    }
-    CreateFileAssociation $BrowserPDFs -ShellOperations @("open2") -Icon @("`"$($SumatraPDFLoc)`",0") -ShellOpDisplayName @("Mit SumatraPDF lesen") -Command @("`"$($SumatraPDFLoc)`" `"%1`"") #"ddores.dll,-2414"
-    Copy-Item -Path "Registry::HKCR\$($Key)\shell\open\command" -Destination "Registry::HKCR\MSEdgePDF\shell\open2" -Force
-    foreach($PrintAction in @("print","printto")) {
-        Copy-Item -Path "Registry::HKCR\$($KeyWithPrint)\shell\$($PrintAction)" -Destination "Registry::HKCR\MSEdgePDF\shell" -Force -Recurse -ErrorAction SilentlyContinue
-    }
-}
 # --------HTML file--------
 [string]$OpenHTMLVerb="@ieframe.dll,-14756" # Open in new tab
 if($BrowserIcon -like "ieframe.dll,-31065") {
@@ -724,7 +699,7 @@ MakeReadOnly "HKCR\MSEdgeHTM\DefaultIcon" -InclAdmin
 MakeReadOnly "HKCR\htmlfile\DefaultIcon" -InclAdmin
 # ------- URL Internet Shortcut -------
 foreach($PropertyToBeRemoved in @("NeverShowExt")) { #,"IsShortcut"
-    Remove-ItemProperty -Path "Registry::HKCR\InternetShortcut" -Name $PropertyToBeRemoved -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "Registry::HKCR\InternetShortcut" -Name $PropertyToBeRemoved -ea 0
 }
 Remove-Item -Path "Registry::HKCR\InternetShortcut\ShellEx\ContextMenuHandlers\{FBF23B40-E3F0-101B-8488-00AA003E56F8}" -Force
 CreateFileAssociation "InternetShortcut" -DefaultIcon "url.dll,-5" -ShellOperations @("open","edit","print","printto") -Icon @("$($BrowserIcon)","`"$($VSCodeLocation)`",0","ddores.dll,-2414","ddores.dll,-2413") -MUIVerb @("@synccenter.dll,-6102",,"","","") -LegacyDisable @(0,0,1,1) -Command @("powershell.exe -Command `"`$URL= ((Get-Content '%1') -like 'URL=*') -replace 'URL=',' '; Start-Process '$($BrowserPath)' -ArgumentList `$URL`"","`"$($VSCodeLocation)`" `"%1`"","","")
@@ -791,7 +766,28 @@ elseif($LibreOfficeInstalled) {
         }
     }
 }
-# When no office program installed: Use microsoft edge.
+elseif($OnlyOfficeInstalled) {
+    [string[]]$OnlyOfficeHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {$_ -like "ASC.*"})
+    foreach($Key in $OnlyofficeHKCR) {
+        $OfficeIcon=(Get-ItemProperty -LiteralPath "Registry::HKCR\$($Key)\DefaultIcon").'(default)'
+        CreateFileAssociation "$($Key)" -ShellOperations "open" -Icon "C:\Program Files\ONLYOFFICE\DesktopEditors\app.ico"
+        if($OfficeIcon -like "*ONLYOFFICE*") { # ONLYOFFICE icon is sorta ugly. Wanna change them to the MS Office file icons
+            [int]$OfficeFileIconType=($OfficeIcon -replace "[^0-9]" , '') # Get the numbers only
+            Switch($OfficeFileIconType) {
+                {$_ -in 24,22,10,23} { # Excel, CSV files etc.
+                    CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-8320"
+                }
+                {$_ -in 1,9,3,2,8} { # PPT
+                    CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-8312"
+                }
+                {$_ -in 11,7,18,19} { # Word
+                    CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-8302"
+                }
+            }
+        }
+    }
+}
+# When no office program installed: Use browser to open
 else {
     # PPT
     CreateFileAssociation "PPTFile" -FileAssoList @(".ppt",".pptx") -DefaultIcon "imageres.dll,-8312" -TypeName "@explorerframe.dll,-50295" -ShellOperations "open" -Icon "$($BrowserIcon)" -command "$($BrowserOpenAction)"
@@ -800,9 +796,16 @@ else {
     # EXCEL
     CreateFileAssociation "XLSFile" -FileAssoList @(".xls",".xlsx","xlsm") -DefaultIcon "imageres.dll,-8320" -TypeName "@explorerframe.dll,-50294" -ShellOperations "open" -Icon "$($BrowserIcon)" -command "$($BrowserOpenAction)"
 }
+# ----------------
+# RDP file (config for remote connection)
+if(!([bool](Get-ItemProperty "Registry::HKCR\RDP.File\shell\Connect").Icon)) { # If registry not written already
+    CreateFileAssociation "RDP.File" -ShellOperations @("Connect","Edit","Open") -Extended @(0,0,0) -Icon @("mstscax.dll,-13417","mstsc.exe,-101","`"$($VSCodeLocation)`",0")  -ShellOpDisplayName @("","Mit MSTSC bearbeiten","Mit Visual Studio Code bearbeiten") -Command @("","","`"$($VSCodeLocation)`" `"%1`"")
+}
+# ----------------
 # PFX Certificate
 CreateFileAssociation "pfxfile" -ShellOperations @("add","open") -Extended @(0,1) -LegacyDisable @(0,1) `
     -Icon @("certmgr.dll,-6169","certmgr.dll,-6169") -MUIVerb @("@cryptext.dll,-6126","") -ShellDefault "add"
+# ----------------
 # INI /INF Config file
 CreateFileAssociation @("inifile","inffile") `
     -FileAssoList @("forger2","conf","ini","inf") `
@@ -813,7 +816,7 @@ CreateFileAssociation @("inifile","inffile") `
     -Extended @(0,1) -LegacyDisable @(0,1) `
     -DefaultIcon "imageres.dll,-69"
 # INF File Install
-CreateFileAssociation "SystemFileAssociations\.inf" -ShellOperations "install" -Icon "msihnd.dll,-10"
+CreateFileAssociation "SystemFileAssociations\.inf" -ShellOperations "install" -Icon "msihnd.dll,-10" 
 # SRT Subtitles
 [string]$SEditLoc="C:\Program Files\Subtitle Edit\SubtitleEdit.exe"
 if(Test-Path "$($SEditLoc)") {
@@ -844,7 +847,7 @@ SetValue -RegPath "HKCR\CLSID\{645FF040-5081-101B-9F08-00AA002F954E}" -Name "Des
 CreateKey "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{645FF040-5081-101B-9F08-00AA002F954E}"
 # Change "Manage" icon
 SetValue -RegPath "HKCR\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}\shell\Manage" -Name "Icon" -Value "mycomput.dll,-204"
-Remove-ItemProperty -Path "Registry::HKCR\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}\shell\Manage" -Name "HasLUAShield" -ErrorAction SilentlyContinue
+Remove-ItemProperty -Path "Registry::HKCR\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}\shell\Manage" -Name "HasLUAShield" -ea 0
 # ------ CONTROL PANEL ------
 # Change control panel icons
 CreateFileAssociation @("CLSID\{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}","CLSID\{26EE0668-A00A-44D7-9371-BEB064C98683}") -DefaultIcon "Control.exe,0" -Icon "Control.exe,0" -ShellOperations "open" -MUIVerb "@shell32.dll,-10018" -command "control.exe"
@@ -890,16 +893,16 @@ if($RemoveCommonStartFolder) {
 # SetValue "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Modules\GlobalSettings\DetailsContainer" -Name "DetailsContainer" -Type 3 -Value "01,00,00,00,02,00,00,00" # Type 3 means binary
 # Show library folders in Explorer
 foreach($LibraryFolder in ((Get-ChildItem "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\")+(Get-ChildItem "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\")).Name) {
-    Remove-ItemProperty -Path "Registry::$($LibraryFolder)" -Name "HideIfEnabled" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "Registry::$($LibraryFolder)" -Name "HideIfEnabled" -ea 0
     if(((Get-ItemProperty -LiteralPath "Registry::$($LibraryFolder)").'(default)') -like "CLSID_*RegFolder") {
-        Remove-Item -Path "Registry::$($LibraryFolder)" -ErrorAction SilentlyContinue
+        Remove-Item -Path "Registry::$($LibraryFolder)" -ea 0
         New-Item -Path "Registry::$($LibraryFolder)"
     }
 }
 foreach($LibraryFolder in @("{d3162b92-9365-467a-956b-92703aca08af}","{088e3905-0323-4b02-9826-5d99428e115f}","{3dfdf296-dbec-4fb4-81d1-6a3438bcf4de}","{f86fa3ab-70d2-4fc7-9c99-fcbf05467f3a}","{24ad3ad4-a569-4530-98e1-ab02f9417aa8}")) 
 # d3162b...: Dokumente; 088e39...: Downloads; 3dfdf2...: Musik; f86fa3...: Videos; 24ad3a...: Bilder
 {
-    Rename-ItemProperty -Path "Registry::HKCR\CLSID\$($LibraryFolder)" -Name "System.IsPinnedToNameSpaceTree_Old" -NewName "System.IsPinnedToNameSpaceTree" -ErrorAction SilentlyContinue
+    Rename-ItemProperty -Path "Registry::HKCR\CLSID\$($LibraryFolder)" -Name "System.IsPinnedToNameSpaceTree_Old" -NewName "System.IsPinnedToNameSpaceTree" -ea 0
     if($LibraryFolder -Notlike "{088e3905-0323-4b02-9826-5d99428e115f}") { 
         # Hide "Music", "Photos", "Videos" and "Documents" because they are also retrievable from library. Keep "Download" only
         SetValue "HKCR\CLSID\$($LibraryFolder)" -Name "System.IsPinnedToNameSpaceTree" -Type "dword" -Value 0 
@@ -909,8 +912,8 @@ SetValue -RegPath "HKCR\CLSID\{088e3905-0323-4b02-9826-5d99428e115f}" -Name "Inf
 SetValue -RegPath "HKCR\CLSID\{d3162b92-9365-467a-956b-92703aca08af}" -Name "Infotip" -Value "@shell32.dll,-22914"
 # Context menu icon - revert to standard library
 CreateFileAssociation "CLSID\{031E4825-7B94-4dc3-B131-E946B44C8DD5}" -ShellOperations "restorelibraries" -Icon "shell32.dll,-16803" -Extended 1
-Remove-ItemPeoperty -Path "Registry::HKCR\CLSID\{031E4825-7B94-4dc3-B131-E946B44C8DD5}\shell\restorelibraries" -Name "SeparatorBefore" -ErrorAction SilentlyContinue
-Remove-ItemPeoperty -Path "Registry::HKCR\CLSID\{031E4825-7B94-4dc3-B131-E946B44C8DD5}\shell\restorelibraries" -Name "SeparatorAfter" -ErrorAction SilentlyContinue
+Remove-ItemPeoperty -Path "Registry::HKCR\CLSID\{031E4825-7B94-4dc3-B131-E946B44C8DD5}\shell\restorelibraries" -Name "SeparatorBefore" -ea 0
+Remove-ItemPeoperty -Path "Registry::HKCR\CLSID\{031E4825-7B94-4dc3-B131-E946B44C8DD5}\shell\restorelibraries" -Name "SeparatorAfter" -ea 0
 # Remove most folders from desktop
 foreach($Arch in @("","\WOW6432Node")) { # 32-bit and 64-bit registry
     foreach($DesktopFolderNamespace in (Get-ChildItem "Registry::HKLM\SOFTWARE$($Arch)\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace_*")) {
@@ -927,7 +930,7 @@ foreach($Arch in @("","\WOW6432Node")) { # 32-bit and 64-bit registry
         "{645FF040-5081-101B-9F08-00AA002F954E}",` # Recycle bin
         "{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}"` # Control Panel
     ))  {
-        Remove-Item "Registry::HKLM\Software$($Arch)\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\$($DesktopIconsToRemove)" -Force -ErrorAction SilentlyContinue
+        Remove-Item "Registry::HKLM\Software$($Arch)\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\$($DesktopIconsToRemove)" -Force -ea 0
     }
 }
 SetValue -RegPath "HKCR\CLSID\{59031a47-3f72-44a7-89c5-5595fe6b30ee}" -Name "Infotip" -Value "@shell32.dll,-30372"
@@ -962,66 +965,6 @@ CreateKey "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\
         }
     }
 # }
-# ——————————————
-# DropBox
-[string]$DropBoxInstallLoc="C:\Program Files (x86)\Dropbox\Client\Dropbox.exe"
-if(Test-Path "$($DropBoxInstallLoc)") { # DropBox CLSID changes each time, for safety use pre-defined CLSID instead
-    [string]$DropBoxIcon="`"$($DropBoxInstallLoc)`",-13001"
-    MkDirCLSID "{3ac72dca-9dda-4055-9cdb-695154218963}" -Name "Dropbox" -Icon "$($Dropboxicon)" -TargetPath "$($env:Userprofile)\Dropbox" -FolderType 9
-}
-else {
-    Remove-Item "Registry::HKCU\Software\Classes\CLSID\{3ac72dca-9dda-4055-9cdb-695154218963}" -Force -Recurse -ErrorAction SilentlyContinue
-    Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{3ac72dca-9dda-4055-9cdb-695154218963}" -Force -ErrorAction SilentlyContinue
-}
-# ————————————————
-# Google Drive
-if(Test-Path "C:\Program Files\Google\Drive File Stream\drive_fs.ico") {
-    MkDirCLSID "{9499128F-5BF8-4F88-989C-B5FE5F058E79}" -Name "Google Drive" -TargetPath "A:\" -FolderType 9 -Icon "C:\Program Files\Google\Drive File Stream\drive_fs.ico"
-    $GoogleDriveReg=@'
-Windows Registry Editor Version 5.00
-
-[HKEY_CURRENT_USER\SOFTWARE\Google\DriveFS]
-"PerAccountPreferences"="{\"per_account_preferences\":[{\"key\":\"111142118877551513951\",\"value\":{\"mount_point_path\":\"A\"}}]}"
-"DoNotShowDialogs"="{\"mount_point_changed\":true,\"preferences_dialog_tour\":true,\"spork_tour_notification\":true}"
-"PromptToBackupDevices"=dword:00000000
-
-[HKEY_CURRENT_USER\SOFTWARE\Google\DriveFS\Share]
-"SyncTargets"=hex:0a,1d,0a,17,0a,15,31,31,31,31,34,32,31,31,38,38,37,37,35,35,\
-  31,35,31,33,39,35,31,12,02,41,3a
-"ShellIpcEnabled"=dword:00000001
-'@
-    ImportReg $GoogleDriveReg
-    SetValue -RegPath "HKEY_CURRENT_USER\Software\Google\DriveFS\Share" -Name "BasePath" -Value "$($env:LOCALAPPDATA)\Google\DriveFS"
-    SetValue -RegPath "HKEY_CURRENT_USER\Software\Google\DriveFS\Share" -Name "ShellIpcPath" -Value "\\.\Pipe\GoogleDriveFSPipe_$($env:UserName)_shell"
-}
-else {
-    remove-item "Registry::HKCR\CLSID\{9499128F-5BF8-4F88-989C-B5FE5F058E79}" -Force -Recurse -ErrorAction SilentlyContinue
-    remove-item "Registry::HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{9499128F-5BF8-4F88-989C-B5FE5F058E79}" -Force `
-    -ErrorAction SilentlyContinue
-}
-# ______rClone Drives_______
-[string]$rClonePath=(where.exe rclone.exe)
-if($rClonePath -like "*rclone.exe") { # rClone installed
-    [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','') # RClone Drive Names is stored with [] in rclone.conf
-    for($i=0;$i -lt 9; $i++) { # This script can display max. 10 CLSID entries.
-        [int]$StringLength=$rCloneDrives[$i].IndexOf('_')
-        if($StringLength -eq -1) {
-            $StringLength=$rCloneDrives[$i].length
-        }
-        [string[]]$DriveIcons=(GetDistroIcon $rCloneDrives[$i].SubString(0,$StringLength) -CloudDrive)
-        [string]$DriveIcon=$DriveIcons[1]
-        if($DriveIcon.length -eq 0) {
-            $DriveIcon="`"$($rClonePath)`",0"
-        }
-        if((((Get-WmiObject Win32_Process -Filter "name='rclone.exe'" | Select-Object CommandLine) -like "* $($rCloneDrives[$i]): *").count) -and ($i -lt $rCloneDrives.count)) {
-            MkDirCLSID "{6587a16a-ce27-424b-bc3a-8f044d36fd9$($i)}" -Name "$($rCloneDrives[$i] -replace '_',' ')" -TargetPath "$($env:Userprofile)\$($rCloneDrives[$i])" -Icon "$($DriveIcon)" -FolderType 9 -Pinned 0
-        }
-        else {
-            Remove-Item "Registry::HKCR\CLSID\{6587a16a-ce27-424b-bc3a-8f044d36fd9$($i)}" -Force -Recurse
-            Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{6587a16a-ce27-424b-bc3a-8f044d36fd9$($i)}" -Force -Recurse
-        }
-    }
-}
 # ________________
 # Hide unwanted drive letters
 [string[]]$DriveLetters=(Get-PSDrive -PSProvider FileSystem).Name
@@ -1031,37 +974,24 @@ if($DriveLetters -contains "A") { # Google Drive
 }
 if(($DriveLetters -contains "P") -and ((Get-Volume P).FileSystemLabel -like "pcloud*")) { # Check the drive label extra to see if it's actually pCloud drive
     # PCloud installed
-    $HiddenDrives=$HiddenDrives+[math]::pow(2,15)
+    $HiddenDrives=$HiddenDrives+[math]::pow(2,15) # P is the 16th letter in Latin alphabet. begin with A  2^0=1, P will be 2^15. The equvilant in Python is 2 ** 15
     MkDirCLSID "{e24083fc-bbef-441f-8590-a2c92966f2bf}" -Name "pCloud" -FolderType 9 -TargetPath "P:\" -Icon "`"C:\Program Files\pCloud Drive\pcloud.exe`",0"
 }
 else {
-    Remove-Item -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{e24083fc-bbef-441f-8590-a2c92966f2bf}" -Force -Recurse -ErrorAction SilentlyContinue
-    Remove-Item -Path "Registry::HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{e24083fc-bbef-441f-8590-a2c92966f2bf}" -Force -Recurse -ErrorAction SilentlyContinue
+    Remove-Item -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{e24083fc-bbef-441f-8590-a2c92966f2bf}" -Force -Recurse -ea 0
+    Remove-Item -Path "Registry::HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{e24083fc-bbef-441f-8590-a2c92966f2bf}" -Force -Recurse -ea 0
 }
 SetValue "HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoDrives" -Type 4 -Value $HiddenDrives
-# ________________
-# Modify library namespaces
-ModifyMusicLibraryNamespace
+ModifyMusicLibraryNamespace # Modify music library namespace
 # Remove "3D objects" and "Desktop" from Windows Explorer namespace
 foreach($UselessNamespace in @("{0DB7E03F-FC29-4DC6-9020-FF41B59E513A}","{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}")) {
-    Remove-Item -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($UselessNamespace)" -ErrorAction SilentlyContinue
-}
-# _______________
-# Create "Games" folder
-[string]$SpielePath="$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs\Spiele"
-if (Test-Path "$($SpielePath)") {
-    MkDirCLSID "{a235a4f4-3349-42e1-b81d-a476cd7e33c0}" -Name "@shell32.dll,-30579" -InfoTip "@searchfolder.dll,-9031" -Pinned 0 -TargetPath "$($SpielePath)" -FolderType 3 -Icon "imageres.dll,-186"
-    SetValue -RegPath "HKCU\Software\Classes\CLSID\{a235a4f4-3349-42e1-b81d-a476cd7e33c0}\Instance\InitPropertyBag" -Name "TargetFolderPath" -Value "$($env:Appdata)\Microsoft\Windows\Start Menu\Programs\Spiele"
-    foreach($SubKey in @("","WOW6432Node\")) {
-        CreateKey "HKLM\SOFTWARE\$($SubKey)Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{a235a4f4-3349-42e1-b81d-a476cd7e33c0}"
-    }
+    Remove-Item -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($UselessNamespace)" -ea 0
 }
 # Add Recent Items to folders
 SetValue "HKCR\CLSID\{22877a6d-37a1-461a-91b0-dbda5aaebc99}" -Name "System.IsPinnedToNameSpaceTree" -Type 4 -Value 0
 SetValue "HKCR\CLSID\{22877a6d-37a1-461a-91b0-dbda5aaebc99}" -Name "DescriptionID" -Type 4 -Value 3
 CreateKey "HKCR\CLSID\{22877a6d-37a1-461a-91b0-dbda5aaebc99}\DefaultIcon" -StandardValue "shell32.dll,-37219"
 CreateKey "HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{22877a6d-37a1-461a-91b0-dbda5aaebc99}"
-UpdateStorageInfo
 # ----- Folder Options ------
 Set-ItemProperty -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\Folder\HideFileExt" -Name "DefaultValue" -Value 0 # Show file extensions
 Set-ItemProperty -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\Folder\ShowCompColor" -Name "DefaultValue" -Value 1 # Show compressed / encrypted files in blue/green
@@ -1069,40 +999,18 @@ foreach($HiddenOption in @("NOHIDDEN","SHOWALL")) {
     Set-ItemProperty -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced\Folder\Hidden\$($HiddenOption)" -Name "DefaultValue" -Value 1 # Show hidden files
 }
 # ------ Remove all later-added desktop icons in HKCU ------
-Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\*" -Force -ErrorAction SilentlyContinue
+Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\*" -Force -ea 0
 MakeReadOnly "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace"
-# ------ System PATH Environment -----
-[string]$SysEnv=(Get-ItemProperty -LiteralPath "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment").Path
-[string]$UsrEnv=(Get-ItemProperty -LiteralPath "Registry::HKEY_CURRENT_USER\Environment").Path
-[string[]]$PathsToBeAdded=@("$($env:Localappdata)\Programs\Scrcpy")
-foreach($PathToBeAdded in $PathsToBeAdded) {
-    if($PathToBeAdded -like "$($env:Userprofile)*") {
-        if($UsrEnv -Notlike "*$($PathToBeAdded)*") {
-            Write-Host "Adding `"$($PathToBeAdded)`" to user PATH"
-            $UsrEnv="$($UsrEnv);$($PathToBeAdded)"
-            Set-ItemProperty -Path "Registry::HKEY_CURRENT_USER\Environment" -Name "Path" -Value "$($UsrEnv)"
-        }
-    }
-    else {
-        if($SysEnv -Notlike "*$($PathToBeAdded)*") {
-            Write-Host "Adding `"$($PathToBeAdded)`" to system PATH"
-            $SysEnv="$($SysEnv);$($PathToBeAdded)"
-            Set-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" -Name "Path" -Value "$($SysEnv)"
-        }
-    }
-}
 # Set Auto Cleanup
 [string[]]$VolCaches=(Get-ChildItem "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\VolumeCaches\").Name
 foreach($TempFileCleanup in $VolCaches) {
     if(($TempFileCleanup -like "*Downloads*") -or ($TempFileCleanup -like "*Recycle Bin")) {
-        Remove-ItemProperty -LiteralPath "Registry::$($TempFileCleanup)" -Name "StateFlags0001" -ErrorAction SilentlyContinue
+        Remove-ItemProperty -LiteralPath "Registry::$($TempFileCleanup)" -Name "StateFlags0001" -ea 0
     }
     else {
         SetValue -RegPath "$($TempFileCleanup)" -Name "StateFlags0001" -Type "dword" -Value 2
     }
 }
-# Enable Windows 11 25300+ preview feature
-# SetValue -RegPath "HKLM\Software\Microsoft\Windows\CurrentVersion\Shell\Update\Packages\MicrosoftWindows.Client.40729001_cw5n1h2txyewy" -Name "Compatible" -Type "dword" -Value 1
 # ————————KEYBOARD TWEAKS—————————
 # Use SpeedCrunch as calculator
 [string]$SpeedCrunchPath="C:\Program Files (x86)\SpeedCrunch\speedcrunch.exe"
@@ -1118,9 +1026,6 @@ if($CurrentKeyboardLayout -notlike "KBDGR.DLL") {
     BallonNotif "Computer needs to be restarted to let keyboard layout change (EN->DE) take effect"
 }
 # --------Dragon Age Toolset--------
-[string]$DAToolSetD="D:\Spiele\Dragon Age Origins\Tools\DragonAgeToolset.exe"
-[string]$DAToolSetC="$($env:USERPROFILE)\Spiele\Dragon Age Origins\Tools\DragonAgeToolset.exe"
-[bool]$DAToolSetInstalled=((Test-Path $DAToolSetD) -or (Test-Path $DAToolSetC))
 if($DAToolSetInstalled) {
     if(Test-Path $DAToolSetD) {
         [string]$DAToolSetL=$DAToolSetD
@@ -1138,6 +1043,30 @@ if($DAToolSetInstalled) {
     if($JREInstalled) {
         CreateFileAssociation "UTCFile" -FileAssoList "utc" -DefaultIcon "javaw.exe,0" -ShellOperations "run" -ShellDefault "run" -Command "javaw.exe -jar `"$($DAToolSetL.replace("\Tools\DragonAgeToolset.exe","\TlkEdit-R13d\tlkedit.jar"))`" `"%1`""
     }
-    Remove-ItemProperty -Path "Registry::HKCR\.erf" -Name "PerceivedType" -ErrorAction SilentlyContinue
-    Remove-ItemProperty -Path "Registry::HKCR\.erf" -Name "Content Type" -ErrorAction SilentlyContinue
+    Remove-ItemProperty -Path "Registry::HKCR\.erf" -Name "PerceivedType" -ea 0
+    Remove-ItemProperty -Path "Registry::HKCR\.erf" -Name "Content Type" -ea 0
 }
+# ------ System PATH Environment -----
+[string]$SysEnv=(Get-ItemProperty -LiteralPath "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment").Path
+[string]$UsrEnv=(Get-ItemProperty -LiteralPath "Registry::HKEY_CURRENT_USER\Environment").Path
+[string[]]$PathsToBeAdded=@()
+if(Test-Path variable:PythonScriptsLoc) {
+    $PathsToBeAdded=$PathsToBeAdded+@($PythonScriptsLoc)
+}
+foreach($PathAdd in $PathsToBeAdded) {
+    if($PathAdd -like "$($env:Userprofile)*") { # PATH in user folder
+        if($UsrEnv -Notlike "*$($PathAdd)*") {
+            Write-Host "Adding `"$($PathAdd)`" to user PATH"
+            $UsrEnv="$($UsrEnv);$($PathAdd)"
+            Set-ItemProperty -Path "Registry::HKEY_CURRENT_USER\Environment" -Name "Path" -Value "$($UsrEnv)"
+        }
+    }
+    else {
+        if($SysEnv -Notlike "*$($PathAdd)*") {
+            Write-Host "Adding `"$($PathAdd)`" to system PATH"
+            $SysEnv="$($SysEnv);$($PathAdd)"
+            Set-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment" -Name "Path" -Value "$($SysEnv)"
+        }
+    }
+}
+UpdateStorageInfo

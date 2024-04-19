@@ -16,7 +16,7 @@ function BallonNotif {
     $balloon.Visible = $true 
     $balloon.ShowBalloonTip(5000)
     if($OnHold) {
-        $Report=(Read-Host $Info) # Wait for input before continuing
+        $Report=(Read-Host $Info) # Wait for input before continuing. Python equvilant: input("...")
     }
     else {
         $Report=""

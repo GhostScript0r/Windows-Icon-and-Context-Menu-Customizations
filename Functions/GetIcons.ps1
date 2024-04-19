@@ -56,16 +56,21 @@ function GetDistroIcon {
     $wc = New-Object System.Net.WebClient
     if($IconForLnk) {
         foreach($hash in $DistroLogoURLs.GetEnumerator()) {
-            $wc.DownloadFile($hash.value,"$($AppDataDir)\$($hash.Name).png")
+            [string]$DownloadTargetFile="$($AppDataDir)\$($hash.Name -replace '.png','').png"
+            if(!(Test-Path $DownloadTargetFile)) {
+                $wc.DownloadFile($hash.value,$DownloadTargetFile)
+            }
             magick.exe "$($AppDataDir)\$($hash.Name).png" -trim -resize 256x256 -background '#00000000' -gravity center  -extent 256x256 "$($AppDataDir)\$($hash.Name).ico"
             Write-Host "$($hash.Name).ico created and can be used in shortcuts" -ForegroundColor Green
         }
         return
     }
-    [string]$DistroLogoURL=$DistroLogoURLs."$DistroName"
+    [string]$DistroLogoURL=$DistroLogoURLs."$($DistroName)"
     if($DistroLogoURL.length -ge 1) {
         # Download logo PNG
-        $wc.DownloadFile($DistroLogoURL,"$($AppDataDir)\$($DistroName).png")
+        if(!(Test-Path "$($AppDataDir)\$($DistroName).png")) {
+            $wc.DownloadFile($DistroLogoURL,"$($AppDataDir)\$($DistroName).png")
+        }
         magick.exe "$($AppDataDir)\$($DistroName).png" -trim -resize 128x128 "$($AppDataDir)\$($DistroName).png"
         # if($DistroName -like "Android") {
         #     magick.exe "$($AppDataDir)\$($DistroName).png" -gravity south -crop 128x74+0+0 "$($AppDataDir)\$($DistroName).png" 

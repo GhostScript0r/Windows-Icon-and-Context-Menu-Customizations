@@ -11,7 +11,10 @@ RunAsAdmin "$($PSCommandPath)"
 "Microsoft.SQLServerManagementStudio",`
 
 # Dev kit
-# "OpenJS.NodeJS","Git.Git","Docker.DockerDesktop",`
+# "OpenJS.NodeJS","Docker.DockerDesktop",`
+"Git.Git",`
+
+"Microsoft.PowerToys",`
 "PeaZip",` # "7zip.7zip",`
 "OBSProject.OBSStudio",`
 "Datronicsoft.SpacedeskDriver.Server",`
@@ -26,17 +29,21 @@ RunAsAdmin "$($PSCommandPath)"
 "PrivateInternetAccess.PrivateInternetAccess",`
 "qBittorrent.qBittorrent",`
 "SpeedCrunch.SpeedCrunch",`
-"ImageMagick.ImageMagick","ArtifexSoftware.GhostScript","GIMP.GIMP",`
+
+# Image processing
+# "ImageMagick.ImageMagick","ArtifexSoftware.GhostScript",`
+"GIMP.GIMP",`
 "Rainmeter.Rainmeter",`
 "VideoLAN.VLC",` # "KDE.Kdenlive",`
 # "Workrave.Workrave",`
 "BotProductions.IconViewer",`
 
 # Penetration testing and digital forensics tools
-"WiresharkFoundation.Wireshark","Insecure.Npcap"
+"WiresharkFoundation.Wireshark","Insecure.Npcap",`
 
 # Office app
-"OneNote"
+"ONLYOFFICE.DesktopEditors"# "OneNote"
+
 )
 # VSRedist Runtimes
 foreach($VCRedistVersion in @("2005","2008","2010","2012","2013","2015+")) {
