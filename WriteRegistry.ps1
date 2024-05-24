@@ -115,38 +115,36 @@ if(Test-Path $WSAAppDataDir) { # WSA Installed
         }
     }
     [string[]]$WSAIconsDistro=(GetDistroIcon "Android")
-    if($WSAIconsDistro -eq 0) {
+    if($WSAIconsDistro.length -eq 0) {
         $WSAIconsDistro=$WSAIcons
     }
     [string]$WSACLSID="{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}"
-    if((Test-Path "$($WSALocation)") -and !(Test-Path "Registry::HKCR\CLSID\$($WSACLSID)")) {
-        MkDirCLSID $WSACLSID -Name "Android" -Icon "`"$($WSAIconsDistro[1])`"" -FolderType 6 -IsShortcut
-        [string]$StartWSAAppCommandPrefix="$($env:Localappdata)\Microsoft\WindowsApps\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\WsaClient.exe /launch wsa://"
-        [string[]]$WSAContextMenu=@("open","cmd")
-        [string[]]$WSAContextMenuIcon=@("`"$($WSAIcons[1])`"","$($TerminalIconICO)")
-        [string[]]$WSAContextMenuName=@("Mit Android-Dateibrowser ansehen","WSA ADB-Shell starten")
-        [string[]]$WSAContextMenuCommand=@("$($StartWSAAppCommandPrefix)com.android.documentsui","wt.exe -p `"WSA ADB Shell`"")
-        [string[]]$ExtraApps=@("com.android.settings") # "com.ghisler.android.TotalCommander",
-        for($i=0;$i -lt $ExtraApps.count;$i++) {
-            [string]$AppIconLoc = "$($env:LOCALAPPDATA)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalState\$(`
-            $ExtraApps[$i]).ico"
-            if((Test-Path "$($AppIconLoc)") -or ($ExtraApps[$i] -like "com.android.settings")) {
-                $WSAContextMenu = $WSAContextMenu + @("open$($i+2)")
-                if($ExtraApps[$i] -like "com.android.settings") {
-                    $AppIconLoc="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalState\com.google.android.googlequicksearchbox.ico"
-                }
-                $WSAContextMenuIcon = $WSAContextMenuIcon + @("$($AppIconLoc)")
-                [string[]]$WSANameToAdd=switch($i) {
-                    0 {
-                        @("Android-Systemeinstellungen")
-                    }
-                }
-                $WSAContextMenuName = $WSAContextMenuName + $WSANameToAdd
-                $WSAContextMenuCommand = $WSAContextMenuCommand +@("$($StartWSAAppCommandPrefix)$($ExtraApps[$i])")
+    MkDirCLSID $WSACLSID -Name "Android" -Icon "`"$($WSAIconsDistro[1])`"" -FolderType 6 -IsShortcut
+    [string]$StartWSAAppCommandPrefix="$($env:Localappdata)\Microsoft\WindowsApps\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\WsaClient.exe /launch wsa://"
+    [string[]]$WSAContextMenu=@("open","cmd")
+    [string[]]$WSAContextMenuIcon=@("`"$($WSAIcons[1])`"","$($TerminalIconICO)")
+    [string[]]$WSAContextMenuName=@("Mit Android-Dateibrowser ansehen","WSA ADB-Shell starten")
+    [string[]]$WSAContextMenuCommand=@("$($StartWSAAppCommandPrefix)com.android.documentsui","wt.exe -p `"WSA ADB Shell`"")
+    [string[]]$ExtraApps=@("com.android.settings") # "com.ghisler.android.TotalCommander",
+    for($i=0;$i -lt $ExtraApps.count;$i++) {
+        [string]$AppIconLoc = "$($env:LOCALAPPDATA)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalState\$(`
+        $ExtraApps[$i]).ico"
+        if((Test-Path "$($AppIconLoc)") -or ($ExtraApps[$i] -like "com.android.settings")) {
+            $WSAContextMenu = $WSAContextMenu + @("open$($i+2)")
+            if($ExtraApps[$i] -like "com.android.settings") {
+                $AppIconLoc="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalState\com.google.android.googlequicksearchbox.ico"
             }
+            $WSAContextMenuIcon = $WSAContextMenuIcon + @("$($AppIconLoc)")
+            [string[]]$WSANameToAdd=switch($i) {
+                0 {
+                    @("Android-Systemeinstellungen")
+                }
+            }
+            $WSAContextMenuName = $WSAContextMenuName + $WSANameToAdd
+            $WSAContextMenuCommand = $WSAContextMenuCommand +@("$($StartWSAAppCommandPrefix)$($ExtraApps[$i])")
         }
-        CreateFileAssociation "CLSID\{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}" -ShellOperations $WSAContextMenu -ShellOpDisplayName $WSAContextMenuName -Icon $WSAContextMenuIcon -Command $WSAContextMenuCommand
     }
+    CreateFileAssociation "CLSID\{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}" -ShellOperations $WSAContextMenu -ShellOpDisplayName $WSAContextMenuName -Icon $WSAContextMenuIcon -Command $WSAContextMenuCommand
 }
 else { # WSA not installed
     MkDirCLSID $WSACLSID -RemoveCLSID
@@ -350,7 +348,7 @@ elseif($ZipAppInstalled -like "7-Zip") {
 CreateFileAssociation $BrowserPDFs -ShellOperations "open" -Icon "ieframe.dll,-31065" -MUIVerb "@ieframe.dll,-21819"
 if($BrowserPath -like "*chrome.exe*") {
     $BrowserPDFs = $BrowserPDFs + @("ChromePDF")
-    CreateFileAssociation "ChromePDF" -FileAssoList ".pdf" -DefaultIcon "$($env:Userprofile)\Links\Acrobat.ico" -ShellOperations @("open") -MUIVerb @("@SearchFolder.dll,-10496") -Icon @("`"$($BrowserPath)`",0") -Command @("`"$($BrowserPath)`" `"%1`"") # If Adobe Acrobat is not working: Add  before %1
+    CreateFileAssociation "ChromePDF" -FileAssoList ".pdf" -DefaultIcon "$($env:Userprofile)\Links\Adobe Acrobat.ico" -ShellOperations @("open") -MUIVerb @("@SearchFolder.dll,-10496") -Icon @("`"$($BrowserPath)`",0") -Command @("`"$($BrowserPath)`" `"%1`"") # If Adobe Acrobat is not working: Add  before %1
 }
 # SumatraPDF related
 [string]$SumatraPDFLoc=$(CheckInstallPath "SumatraPDF\sumatrapdf.exe")
@@ -431,15 +429,12 @@ elseif($PythonEXELocation -like "$($env:LOCALAPPDATA)\Microsoft\WindowsApps\pyth
 [string[]]$VSCHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {$_ -like "$($VSCodeVerHKCR).*"})
 foreach($Key in $VSCHKCR) {
     if(Test-Path "Registry::HKCR\$($Key)\shell\open\command" -ea 0) { # Use this if argument to skip VS Code files without "command" subkey
-        CreateFileAssociation "$($Key)" -ShellOperations "open" -Icon "`"$($VSCodeLocation)`",0" -MUIVerb "@shell32.dll,-37398" -Extended 0
+        CreateFileAssociation "$($Key)" -ShellOperations "open" -Icon "`"$($VSCodeLocation)`",0" -MUIVerb "@shell32.dll,-37398" -Extended 0 -command "`"$($VSCodeLocation)`" `"%1`""
     }  # Else: Do nothing for VS Code files without "command" subkey. Those are probably defined somewhere else.
 }
 CreateKey "HKCR\$($VSCodeVerHKCR).txt\DefaultIcon" -StandardValue "imageres.dll,-19"
-foreach($VSCodeAppHKCR in @("Code.exe","Code - Insiders.exe")) {
-    if(Test-Path "Registry::HKCR\Applications\$($VSCodeAppHKCR)") {
-        CreateFileAssociation "Applications\$($VSCodeAppHKCR)" -ShellOperations "open" -Icon "`"$($VSCodeLocation)`",0" -MUIVerb "@certmgr.dll,-291" -Command "`"$($VSCodeLocation)`" `"%1`""
-    }
-}
+[string]$VSCodeAppHKCR=$(Split-Path "$($VSCodeLocation)" -leaf)
+CreateFileAssociation "Applications\$($VSCodeAppHKCR)" -ShellOperations "open" -Icon "`"$($VSCodeLocation)`",0" -MUIVerb "@certmgr.dll,-291" -Command "`"$($VSCodeLocation)`" `"%1`"" -DefaultIcon "imageres.dll,-19"
 # Give "Text" property to all VS Code related files
 foreach($FileExt in (Get-ChildItem "Registry::HKCR\.*").Name) {
     [string]$ProgID=(Get-ItemProperty -LiteralPath "Registry::$($FileExt)\OpenWithProgIds" -ea 0) 
@@ -466,7 +461,7 @@ if(Test-Path "Registry::HKCR\CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}") {
         $WSLIconDistro=@($WSLIconPNG,$WSLLocation)
     }
     MkDirCLSID "{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -FolderType 6 -Name "$($DistroName)" -Pinned 0 -TargetPath "\\wsl.localhost\$($DistroName.Replace(' ','-'))" -Icon "$($WSLIconDistro[1])"
-    CreateFileAssociation "CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ShellOperations "open2" -Icon "$($TerminalIconICO)" -Command "wt.exe -p `"$($DistroName)`""
+    CreateFileAssociation "CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ShellOperations "open2" -Icon "`"$($WSLLocation)`",0" -Command "wt.exe -p `"$($DistroName)`"" -MUIVerb "@wsl.exe,-2" 
     # Remove "Linux" Entry from desktop
     Remove-Item -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ea 0
 }
@@ -952,12 +947,12 @@ CreateKey "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\
         [string]$OneDriveCLSID=(Get-ItemProperty "Registry::$($OneDriveEntry.Name)").NamespaceRootId
         [string]$OneDriveFolderLoc=(Get-ItemProperty "Registry::$($OneDriveEntry.Name)").UserFolder
         if($OneDriveEntry.Name -like "*Personal") {
-            [string]$OneDriveIcon="imageres.dll,-1040"
+            [string]$OneDriveIcon="imageres.dll,-1306" # "imageres.dll,-1040" # 1306 is my suitcase
         }
         elseif($OneDriveEntry.Name -like "*Business*") {
-            [string]$OneDriveIcon="imageres.dll,-1306" #"`"$($OneDriveInstallLoc)`",-589"
+            [string]$OneDriveIcon="`"$($OneDriveInstallLoc)`",-589"
         }
-        MkDirCLSID $OneDriveCLSID -Name "OneDrive" -Icon "$($OneDriveIcon)" -FolderType 9 -TargetPath "$($OneDriveFolderLoc)" -FolderValueFlags 0x30
+        MkDirCLSID $OneDriveCLSID -Name "OneDrive" -Icon "$($OneDriveIcon)" -FolderType 9 -TargetPath "$($OneDriveFolderLoc)" -FolderValueFlags 0x28 # 0x30
         if($OneDriveEntry.Name -like "*Personal*") {
             MakeReadOnly "HKCU\Software\Classes\CLSID\$($OneDriveCLSID)" -InclAdmin
             CreateKey "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($OneDriveCLSID)"
