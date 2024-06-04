@@ -83,7 +83,7 @@ if($OfficeCleanupOnly) {
 # [string[]]$AppsWithFileAsso=@("Microsoft.Paint", "Microsoft.WindowsTerminal", "Microsoft.WindowsTerminalPreview", "PythonSoftwareFoundation.Python.3.10")
 # Define apps that need to be removed
 [string[]]$uselessapps=@("Microsoft.WindowsAlarms",`
-	"Microsoft.Windows.Photos", "Microsoft.549981C3F5F10", "Microsoft.WindowsMaps", ` #"Microsoft.YourPhone",`
+	"Microsoft.Windows.Photos", "Microsoft.549981C3F5F10", "Microsoft.WindowsMaps","Microsoft.YourPhone",`
 	"Microsoft.GetHelp","Microsoft.BingNews","Microsoft.WindowsNotepad",`
 	"Microsoft.People", "Microsoft.MicrosoftStickyNotes", "Microsoft.MicrosoftOfficeHub",` #"Microsoft.Office.OneNote", 
 	"Microsoft.Microsoft3DViewer","Microsoft.MicrosoftSolitaireCollection",`

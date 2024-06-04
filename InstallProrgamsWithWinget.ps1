@@ -56,6 +56,9 @@ if($lastexitcode -eq 1) { # Winget not installed
 # Games launcher
 "EpicGames.EpicGamesLauncher",
 
+# Lenovo Legion toolkit
+"BartoszCichecki.LenovoLegionToolkit",`
+
 # Office app
 "ONLYOFFICE.DesktopEditors"` # "OneNote"
 

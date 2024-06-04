@@ -144,7 +144,7 @@ if(Test-Path $WSAAppDataDir) { # WSA Installed
             $WSAContextMenuCommand = $WSAContextMenuCommand +@("$($StartWSAAppCommandPrefix)$($ExtraApps[$i])")
         }
     }
-    CreateFileAssociation "CLSID\{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}" -ShellOperations $WSAContextMenu -ShellOpDisplayName $WSAContextMenuName -Icon $WSAContextMenuIcon -Command $WSAContextMenuCommand
+    CreateFileAssociation "CLSID\$($WSACLSID)" -ShellOperations $WSAContextMenu -ShellOpDisplayName $WSAContextMenuName -Icon $WSAContextMenuIcon -Command $WSAContextMenuCommand
 }
 else { # WSA not installed
     MkDirCLSID $WSACLSID -RemoveCLSID
@@ -479,7 +479,7 @@ CreateFileAssociation @("Directory\Background","Directory","LibraryFolder\backgr
     -Extended @(0,0,0,1,1,0,0,0) `
     -LegacyDisable @(1,0,0,0,0,0,0,0) `
     -HasLUAShield @(0,0,1,0,0,0,1,0) `
-    -MUIVerb @("","","","","","","@twinui.pcshell.dll,-10929","@wsl.exe,-2") `
+    -MUIVerb @("","","","","","@shell32.dll,-8508","@twinui.pcshell.dll,-10929","@wsl.exe,-2") `
     -Command @("wt.exe -d `"%V `" -p `"Eingabeaufforderung`"",`
         "`"$($VSCodeLocation)`" `"%v `"",`
         "PowerShell -windowstyle hidden -Command `"Start-Process '$($VSCodeLocation)' -ArgumentList '-d `"`"%V`"`"`"' -Verb RunAs`"",`
@@ -761,6 +761,7 @@ elseif($LibreOfficeInstalled) {
         }
     }
 }
+# File Associations when OnlyOffice is installed
 elseif($OnlyOfficeInstalled) {
     [string[]]$OnlyOfficeHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {$_ -like "ASC.*"})
     foreach($Key in $OnlyofficeHKCR) {
@@ -770,17 +771,18 @@ elseif($OnlyOfficeInstalled) {
             [int]$OfficeFileIconType=($OfficeIcon -replace "[^0-9]" , '') # Get the numbers only
             Switch($OfficeFileIconType) {
                 {$_ -in 24,22,10,23} { # Excel, CSV files etc.
-                    CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-8320"
+                    CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-8320" -FileAssoList @(".xls",".xlsx","xlsm","ods")
                 }
                 {$_ -in 1,9,3,2,8} { # PPT
-                    CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-8312"
+                    CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-8312" -FileAssoList @(".ppt",".pptx")
                 }
                 {$_ -in 11,7,18,19} { # Word
-                    CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-8302"
+                    CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-8302" -FileAssoList @(".doc",".docx","dot","odt")
                 }
             }
         }
     }
+    CreateFileAssociation "ASC.Csv" -DefaultIcon "imageres.dll,-8301" -FileAssoList @(".csv")
 }
 # When no office program installed: Use browser to open
 else {
@@ -894,17 +896,38 @@ foreach($LibraryFolder in ((Get-ChildItem "Registry::HKEY_LOCAL_MACHINE\SOFTWARE
         New-Item -Path "Registry::$($LibraryFolder)"
     }
 }
-foreach($LibraryFolder in @("{d3162b92-9365-467a-956b-92703aca08af}","{088e3905-0323-4b02-9826-5d99428e115f}","{3dfdf296-dbec-4fb4-81d1-6a3438bcf4de}","{f86fa3ab-70d2-4fc7-9c99-fcbf05467f3a}","{24ad3ad4-a569-4530-98e1-ab02f9417aa8}")) 
+[string[]]$LibraryFolders=@("{d3162b92-9365-467a-956b-92703aca08af}","{088e3905-0323-4b02-9826-5d99428e115f}","{3dfdf296-dbec-4fb4-81d1-6a3438bcf4de}","{f86fa3ab-70d2-4fc7-9c99-fcbf05467f3a}","{24ad3ad4-a569-4530-98e1-ab02f9417aa8}")
+# [string[]]$LibraryDescripCLSIDs=@("{7b0db17d-9cd2-4a93-9733-46cc89022e7c}","","{2112AB0A-C86A-4ffe-A368-0DE96E47012E}","{491E922F-5643-4af4-A7EB-4E7A138D8174}","{A990AE9F-A03B-4e80-94BC-9912D7504104}")
 # d3162b...: Dokumente; 088e39...: Downloads; 3dfdf2...: Musik; f86fa3...: Videos; 24ad3a...: Bilder
-{
-    Rename-ItemProperty -Path "Registry::HKCR\CLSID\$($LibraryFolder)" -Name "System.IsPinnedToNameSpaceTree_Old" -NewName "System.IsPinnedToNameSpaceTree" -ea 0
-    if($LibraryFolder -Notlike "{088e3905-0323-4b02-9826-5d99428e115f}") { 
-        # Hide "Music", "Photos", "Videos" and "Documents" because they are also retrievable from library. Keep "Download" only
-        SetValue "HKCR\CLSID\$($LibraryFolder)" -Name "System.IsPinnedToNameSpaceTree" -Type "dword" -Value 0 
+for($i=0;$i -lt $LibraryFolders.count;$i++) {
+    [string]$LibraryIcon=(Get-ItemProperty -Path "Registry::HKCR\CLSID\$($LibraryFolders[$i])\DefaultIcon" -ea 0).'(default)'
+    # [string]$LibraryDescripCLSID=$LibraryDescripCLSIDs[$i]
+    # [bool]$LibraryIsMSLibrary=$true
+    # if($LibraryDescripCLSID.length -eq 0) {
+        [string]$LibraryDescripCLSID=(Get-ItemProperty -Path "Registry::HKCR\CLSID\$($LibraryFolders[$i])\Instance\InitPropertyBag" -ea 0).'TargetKnownFolder'
+        # [bool]$LibraryIsMSLibrary=$false
+    # }
+    [string]$LibraryName=(Get-ItemProperty -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\$($LibraryDescripCLSID)").'LocalizedName'
+    [string]$LibraryInfoTip=(Get-ItemProperty -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\$($LibraryDescripCLSID)").'InfoTip'
+    [string]$LibraryPath=(Get-ItemProperty -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\$($LibraryDescripCLSID)").'ParsingName'
+    $LibraryPath = $LibraryPath -replace 'shell:::','' -replace '::',''
+    Rename-ItemProperty -Path "Registry::HKCR\CLSID\$($LibraryFolders[$i])" -Name "System.IsPinnedToNameSpaceTree_Old" -NewName "System.IsPinnedToNameSpaceTree" -ea 0
+    [int]$Pinned = 0 # Hide 
+    if($LibraryFolders[$i] -like "{088e3905-0323-4b02-9826-5d99428e115f}") { # Downloads
+        $Pinned=1
     }
+    MkDirCLSID $LibraryFolders[$i] -Pinned $Pinned
+    # Since  version 22631.3672, the abovementioned function no longer works - Need to create new CLSIDs for the my computer folder
+    # if ($LibraryIsMSLibrary) {
+    #     MkDirCLSID "{77777777-7777-4489-a3ca-2b3aae34421$($i)}" -Icon $LibraryIcon -Name $LibraryName -Infotip $LibraryInfoTip -IsShortcut
+    #     CreateFileAssociation "CLSID\{77777777-7777-4489-a3ca-2b3aae34421$($i)}" -ShellOperations "open" -Icon "imageres.dll,-1001" -Command "shell:::$($LibraryPath)"  -MUIVerb "@comres.dll,-1865"
+    # }
+    # else {
+        MkDirCLSID "{77777777-7777-4489-a3ca-2b3aae34421$($i)}" -Pinned $Pinned -Icon $LibraryIcon -Name $LibraryName -Infotip $LibraryInfoTip -TargetPath $LibraryDescripCLSID
+    # }
 }
-SetValue -RegPath "HKCR\CLSID\{088e3905-0323-4b02-9826-5d99428e115f}" -Name "Infotip" -Value "@occache.dll,-1070"
-SetValue -RegPath "HKCR\CLSID\{d3162b92-9365-467a-956b-92703aca08af}" -Name "Infotip" -Value "@shell32.dll,-22914"
+SetValue -RegPath "HKCR\CLSID\{088e3905-0323-4b02-9826-5d99428e115f}" -Name "Infotip" -Value "@occache.dll,-1070" # Downloads
+SetValue -RegPath "HKCR\CLSID\{d3162b92-9365-467a-956b-92703aca08af}" -Name "Infotip" -Value "@shell32.dll,-22914" # MyDocuents
 # Context menu icon - revert to standard library
 CreateFileAssociation "CLSID\{031E4825-7B94-4dc3-B131-E946B44C8DD5}" -ShellOperations "restorelibraries" -Icon "shell32.dll,-16803" -Extended 1
 Remove-ItemPeoperty -Path "Registry::HKCR\CLSID\{031E4825-7B94-4dc3-B131-E946B44C8DD5}\shell\restorelibraries" -Name "SeparatorBefore" -ea 0

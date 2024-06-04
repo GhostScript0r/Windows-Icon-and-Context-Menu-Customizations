@@ -102,7 +102,6 @@ function CreateShellFolder {
         [string]$Infotip="",
         [switch]$DoNotPin,
         [string]$DefaultIcon,
-        [string]$TargetKnownFolder,
         [string]$Name="",
         [int]$Category=3
     )
@@ -190,10 +189,11 @@ function MkDirCLSID {
         SetValue "$($RegRoot)\Software\Classes\CLSID\$($GUID)\InProcServer32" -Name "Threadingmodel" -Value "Both"
         SetValue "$($RegRoot)\Software\Classes\CLSID\$($GUID)\Instance" -Name "CLSID" -Value "{0E5AAE11-A475-4c5b-AB00-C66DE400274E}"
         SetValue "$($RegRoot)\Software\Classes\CLSID\$($GUID)\Instance\InitPropertyBag" -Name "Attributes" -Type 4 -Value 0x11
-        if($TargetPath -like "{*-*-*-*-*}") { # Target path is CLSID
+        if($TargetPath -like "*{*-*-*-*-*}*") { # Target path is CLSID
             SetValue "$($RegRoot)\Software\Classes\CLSID\$($GUID)\Instance\InitPropertyBag" -Name "TargetKnownFolder" -Value "$($TargetPath)"
+            Remove-ItemProperty -Path "$($RegRoot)\Software\Classes\CLSID\$($GUID)\Instance\InitPropertyBag" -Name "TargetFolderPath" -ErrorAction SilentlyContinue
         }
-        else {
+        else { # Target Path is regular file path
             Remove-ItemProperty -Path "$($RegRoot)\Software\Classes\CLSID\$($GUID)\Instance\InitPropertyBag" -Name "TargetKnownFolder" -ErrorAction SilentlyContinue
             if($TargetPath.length -gt 0) {
                 SetValue "$($RegRoot)\Software\Classes\CLSID\$($GUID)\Instance\InitPropertyBag" -Name "TargetFolderPath" -Value "$($TargetPath)"

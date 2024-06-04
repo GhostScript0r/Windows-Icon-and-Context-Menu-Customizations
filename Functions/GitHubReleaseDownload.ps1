@@ -11,7 +11,7 @@ function GitHubReleaseDownload {
     $response = Invoke-WebRequest -Uri "https://api.github.com/repos/$($RepoName)/releases/latest"
     $JsonObj = ConvertFrom-Json $response.content
     try {
-        [System.Version]$GitHubVersion=$JsonObj.tag_name
+        [System.Version]$GitHubVersion=($JsonObj.tag_name -replace "[^0-9.]")
     }
     catch {
         [System.Version]$GitHubVersion="0.0.0.1"
@@ -50,7 +50,7 @@ function GitHubReleaseDownload {
         Write-Host "Cannot find download link for the file from GitHub. Exiting..." -ForegroundColor Red
         return
     }
-    [string]$DownloadFile="$($DownloadLoc)\$($AllLatestReleases.name)"
+    [string]$DownloadFile="$($DownloadLoc)\$($AllLatestReleases[0].name)"
     Write-Host "Downloading the latest release " -NoNewline
     Write-Host "$($AllLatestReleases[0].name)" -ForegroundColor Black -BackgroundColor White -NoNewline
     Write-Host " version " -NoNewline
