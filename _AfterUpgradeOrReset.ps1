@@ -8,21 +8,38 @@ if($OOBE) {
 else {
     RunAsAdmin "$($PSCommandPath)"
 }
-if($OOBE) {
-    powershell.exe -File "$($PSScriptRoot)\InstallProrgamsWithWinget.ps1"
-    powershell.exe -File "$($PSScriptRoot)\AppData_Symlink.ps1"
-    powershell.exe -File "$($PSScriptRoot)\CreateShortcutIcon.ps1"
-}
-[int]$CurrentBuildVer=[System.Environment]::OSVersion.Version.Build # The version number is already Int32 value. Use [int] before the variable just to be sure.
+[version]$CurrentBuildVer=[System.Environment]::OSVersion.Version
 [string]$LastBuildVerFile="$($env:LOCALAPPDATA)\Microsoft\LastBuildVer.json"
 if(Test-Path $LastBuildVerFile) {
-    [int]$LastBuildVer=(Get-Content "$($LastBuildVerFile)" | ConvertFrom-Json)
+    [version]$LastBuildVer=(Get-Content "$($LastBuildVerFile)" | ConvertFrom-Json)
 }
 else {
     Write-Host "Last Build Version not found. Assuming this is the first time the script has been running."
-    [int]$LastBuildVer=0
+    [version]$LastBuildVer=0.0.0.0
+    $OOBE=$true
 }
-if($LastBuildVer -lt $CurrentBuildVer) {
+if($OOBE) {
+    powershell.exe -File "$($PSScriptRoot)\InstallPrograms.ps1"
+    powershell.exe -File "$($PSScriptRoot)\AppData_Symlink.ps1"
+    powershell.exe -File "$($PSScriptRoot)\CreateShortcutIcon.ps1"
+    # Import all tasks
+    $Tasks=(Get-ChildItem "$($env:userprofile)\Onedrive\Anlagen\Tasks\*.xml") # Do not include inactive tasks in the subfolder
+    foreach($Task in $Tasks) {
+        [xml]$TaskXML=[string](Get-Content "$($Task.FullName)")
+        [string]$TaskName=$TaskXML.Task.RegistrationInfo.Uri
+        if($TaskName[0] -eq "\") {
+            $TaskName=$TaskName.substring(1)
+        }
+        # Write-Host "Converting the encoding of file to ANSI so that schtasks.exe can inport it properly..." -ForegroundColor Magenta
+        $XML=(Get-Content "$($Task.FullName)")
+        # $Utf8NoBomEncoding = New-Object System.Text.UTF8Encoding $False
+        # [System.IO.File]::WriteAllLines("$($env:Temp)\Task.xml", $XML,[Text.Encoding]::GetEncoding(1252)) # $Utf8NoBomEncoding)
+        # $XML | Out-File "$($env:Temp)\Task.xml" -encoding Ascii
+        Write-Host "Importing task `"$($TaskName)`" from XML file $($Task.FullName)" -ForegroundColor Yellow
+        Register-ScheduledTask -xml ($XML | out-string) -TaskName "$($TaskName)" -Force
+    }
+}
+if($LastBuildVer -ne $CurrentBuildVer) {
     powershell.exe -File "$($PSScriptRoot)\WriteRegistry.ps1"
     Start-Sleep -s 20
     powershell.exe -File "$($PSScriptRoot)\RefreshAppAndRemoveUselessApps.ps1"
