@@ -36,10 +36,14 @@ if(!(Test-Path $LocalWppr)) { # Bing wallpaper not downloaded for today
         }
     } # Adding versioning is necessary, as otherwise the wallpaper won't update properly
 }
-Set-ItemProperty -Path "Registry::HKCU\Control Panel\Desktop" -Name "Wallpaper" -Value $LocalWppr
-Set-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers" -Name "BackgroundHistoryPath0" -Value $LocalWppr
-Set-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers" -Name "BackgroundType" -Value 0
-RUNDLL32.EXE USER32.DLL,UpdatePerUserSystemParameters 1, True # Update Wallpaper
+else {
+    SetValue "HKCU\Control Panel\Desktop" -Name "Wallpaper" -Value "$($LocalWppr)"
+    SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers" -Name "BackgroundHistoryPath0" -Value "$($LocalWppr)"
+    SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers" -Name "BackgroundType" -Type "4" -Value 0
+    SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "Wallpaper" -Value "$($LocalWppr)"
+    SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "WallpaperStyle" -Type "4" -Value 0
+    Start-Process "RUNDLL32.EXE" -ArgumentList "USER32.DLL,UpdatePerUserSystemParameters 1, True" # Update Wallpaper
+}
 if($OpenLink) {
     Start-Sleep -s 2
     $DefaultBrowser=(CheckDefaultBrowser)

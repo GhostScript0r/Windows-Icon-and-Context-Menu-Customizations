@@ -1,23 +1,14 @@
 # Get admin privilege
 . "$($PSScriptRoot)\Functions\RunAsAdmin.ps1"
 RunAsAdmin "$($PSCommandPath)"
-
-where.exe winget.exe
-if($lastexitcode -eq 1) { # Winget not installed
-    Write-Information "Downloading WinGet and its dependencies..."
-	Invoke-WebRequest -Uri https://aka.ms/getwinget -OutFile "$($env:TEMP)\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
-	Invoke-WebRequest -Uri https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx -OutFile "$($env:TEMP)\Microsoft.VCLibs.x64.14.00.Desktop.appx"
-	Invoke-WebRequest -Uri https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx -OutFile "$($env:TEMP)\Microsoft.UI.Xaml.2.8.x64.appx"
-	Add-AppxPackage "$($env:TEMP)\Microsoft.VCLibs.x64.14.00.Desktop.appx"
-	Add-AppxPackage "$($env:TEMP)\Microsoft.UI.Xaml.2.8.x64.appx"
-	Add-AppxPackage "$($env:TEMP)\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
-}
+# ______________________________
 # Install programs from GitHub
 . "$($PSScriptRoot)\Functions\GitHubReleaseDownload.ps1"
 GitHubReleaseDownload "microsoft/WSL" -OtherStringsInFileName ".x64.msi" -InstallationName "Windows Subsystem for Linux"
 GitHubReleaseDownload "benbuck/rbtray" -OtherStringsInFileName ".zip" -IsZIP
 GitHubReleaseDownload "NationalSecurityAgency/ghidra" -Arch "PUBLIC" -OtherStringsInFileName ".zip" -IsZIP
 
+# _________________________
 # Download NirSoft programs
 [string[]]$NirSoftUtilities=@("iconsext","resourcesextract")
 [bool[]]$With_x64=@(0,1)
@@ -36,7 +27,20 @@ for($i=0;$i -lt $NirSoftUtilities.count;$i++) {
 	Move-Item -Path "$($env:TEMP)\$($ProgramName)" -Destination "$($env:LOCALAPPDATA)\Programs\NirSoft"
 }
 
+# ____________________________
 # Install programs with WinGet
+# Check in Winget is installed
+where.exe winget.exe
+if($lastexitcode -eq 1) { # Winget not installed
+    Write-Information "Downloading WinGet and its dependencies..."
+	Invoke-WebRequest -Uri https://aka.ms/getwinget -OutFile "$($env:TEMP)\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+	Invoke-WebRequest -Uri https://aka.ms/Microsoft.VCLibs.x64.14.00.Desktop.appx -OutFile "$($env:TEMP)\Microsoft.VCLibs.x64.14.00.Desktop.appx"
+	Invoke-WebRequest -Uri https://github.com/microsoft/microsoft-ui-xaml/releases/download/v2.8.6/Microsoft.UI.Xaml.2.8.x64.appx -OutFile "$($env:TEMP)\Microsoft.UI.Xaml.2.8.x64.appx"
+	Add-AppxPackage "$($env:TEMP)\Microsoft.VCLibs.x64.14.00.Desktop.appx"
+	Add-AppxPackage "$($env:TEMP)\Microsoft.UI.Xaml.2.8.x64.appx"
+	Add-AppxPackage "$($env:TEMP)\Microsoft.DesktopAppInstaller_8wekyb3d8bbwe.msixbundle"
+}
+
 [string[]]$listofprograms=@(`
 
 # Cloud Drive Programs
@@ -78,7 +82,7 @@ for($i=0;$i -lt $NirSoftUtilities.count;$i++) {
 "WiresharkFoundation.Wireshark","Insecure.Npcap",`
 
 # Games launcher
-"EpicGames.EpicGamesLauncher",
+# "EpicGames.EpicGamesLauncher",
 
 # Lenovo Legion toolkit
 "BartoszCichecki.LenovoLegionToolkit",`
