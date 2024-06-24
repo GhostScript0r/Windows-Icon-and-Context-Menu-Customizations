@@ -76,7 +76,7 @@ if($MSOfficeInstalled) {
 else {
 	Write-Host "MS Office is not installed at all."
 }
-if($OfficeCleanupOnly) {
+if($OfficeCleanupOnly -or ((Get-AppxPackage "Microfost.WindowsStore").count -eq 0)) {
 	exit
 }
 #Define apps that has file association used

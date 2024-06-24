@@ -16,8 +16,16 @@ function UpdateStorageInfo {
             Write-Host "Recalculating drive size of $($DriveName)"
             if((Get-ItemProperty "Registry::HKCR\CLSID\$($Drive)").DescriptionID -eq 6) { # this is WSL/WSA drive
                 if(Test-Path "Registry::HKCR\CLSID\$($Drive)\InProcServer32") { # this is WSL drive
-                    [string]$DistroVHDPath=(Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss\$(GetDefaultWSL -GetCLSID)").BasePath 
-                    $DistroVHDPath ="$($DistroVHDPath)\ext4.vhdx"
+                    [string]$DistroVHDPath=$(GetDefaultWSL -GetWSLPath)
+                    [int]$WSLVer=$(GetDefaultWSL -GetWSLver)
+                    switch($WSLVer) {
+                        1 {
+                            $DistroVHDPath="$($DistroVHDPath)\rootfs"
+                        }
+                        2 {
+                            $DistroVHDPath ="$($DistroVHDPath)\ext4.vhdx"
+                        }
+                    }
                 }
                 else { # This is WSA drive
                     [string]$DistroVHDPath="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalCache\userdata.*vhdx"

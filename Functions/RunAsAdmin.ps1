@@ -1,14 +1,19 @@
 function RunAsAdmin {
+    [OutputType([bool])]
     param(
         [parameter(ParameterSetName='PSScriptPath', Mandatory=$true, Position=0)]
         [string]$PSScriptPath, # an array to arrange multiple registry keys at once
-        [string[]]$Arguments=@()
+        [string[]]$Arguments=@(),
+        [switch]$CheckOnly
     )
     $Arguments=$Arguments.Where({ $_ -ne "" })  # Remove possible empty strings
     $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
     [bool]$ScriptIsRunningOnAdmin=($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))
     if(!($ScriptIsRunningOnAdmin)) {
         Write-Host "The script $(Split-Path "$($PSScriptPath)" -leaf) is NOT running with Admin privilege." -ForegroundColor Red -BackgroundColor White
+        if($CheckOnly) {
+            return $false
+        }
         [string]$ScriptWithArgs="`"$($PSScriptPath)`"" 
         foreach($Argument in $Arguments) {
             $ScriptWithArgs=$ScriptWithArgs + " -$($Argument) "
@@ -18,7 +23,7 @@ function RunAsAdmin {
     }
     else {
         Write-Host "The script $(Split-Path "$($PSScriptPath)" -leaf) is running with Admin privilege" -ForegroundColor Green -BackgroundColor White
-        return
+        return $null
     }
 }
 function GetThisScriptVariable {

@@ -42,7 +42,7 @@ else {
     SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers" -Name "BackgroundType" -Type "4" -Value 0
     SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "Wallpaper" -Value "$($LocalWppr)"
     SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "WallpaperStyle" -Type "4" -Value 0
-    Start-Process "RUNDLL32.EXE" -ArgumentList "USER32.DLL,UpdatePerUserSystemParameters 1, True" # Update Wallpaper
+    RUNDLL32.EXE USER32.DLL,UpdatePerUserSystemParameters 1, True # Update Wallpaper
 }
 if($OpenLink) {
     Start-Sleep -s 2

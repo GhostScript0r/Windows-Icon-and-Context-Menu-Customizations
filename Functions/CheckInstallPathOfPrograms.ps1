@@ -1,5 +1,6 @@
 # Checks if a certain program is installed for all users or current user only
 function CheckInstallPath {
+    [OutputType([string])]
     param(
         [parameter(ParameterSetName='Program', Mandatory=$true, Position=0)]
         [string]$Program,
@@ -12,6 +13,9 @@ function CheckInstallPath {
         if(Test-Path "$($InstallLocation[$i])\$($Program)") {
             [string]$ProgramLocation="$($InstallLocation[$i])\$($Program)"
             break
+        }
+        else {
+            [string]$ProgramLocation=""
         }
     }
     # if($i -eq $InstallLocation.length) { # None found

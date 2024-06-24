@@ -7,16 +7,17 @@ function GitHubReleaseDownload {
         [string]$OtherStringsInFileName="",
         [switch]$DownloadOnly,
         [switch]$IsZIP,
-        [string]$InstallationName
+        [string]$InstallationName,
+        [string]$InstallPath=""
     )
     $response = Invoke-WebRequest -Uri "https://api.github.com/repos/$($RepoName)/releases/latest"
     $JsonObj = ConvertFrom-Json $response.content
     try {
-        [System.Version]$GitHubVersion=($JsonObj.tag_name -replace "[^0-9.]")
+        [Version]$GitHubVersion=($JsonObj.tag_name -replace "[^0-9.]")
     }
     catch {
-        [System.Version]$GitHubVersion="0.0.0.0"
-        Write-Host "Cannot get the latest version of $($RepoName) on Github. $($JsonObj.tag_name) cannot be converted to System.Version type. You need to manually check if the version is new or not." -ForegroundColor Magenta
+        [Version]$GitHubVersion="0.0.0.0"
+        Write-Host "Cannot get the latest version of $($RepoName) on Github. $($JsonObj.tag_name) cannot be converted to Version type. You need to manually check if the version is new or not." -ForegroundColor Magenta
     }
     if(((-not $DownloadOnly) -and ($InstallationName.length -gt 0)) -or ($IsZIP)) {
         [bool]$AlreadyInstalled=$false
@@ -25,7 +26,9 @@ function GitHubReleaseDownload {
             if($InstallationName.Length -eq 0) {
                 $InstallationName=(Split-Path $RepoName -leaf)
             }
-            [string]$InstallPath="$($env:LOCALAPPDATA)\Programs\$($InstallationName)"
+            if(-not $InstallPath) {
+                [string]$InstallPath="$($env:LOCALAPPDATA)\Programs\$($InstallationName)"
+            }
             if(Test-Path "$($InstallPath)\*") {
                 $AlreadyInstalled=$true
             }
@@ -50,10 +53,10 @@ function GitHubReleaseDownload {
             Write-Host "$($InstallationName)" -ForegroundColor Black -BackgroundColor White -NoNewLine 
             Write-Host " is already installed on this PC." -ForegroundColor Green
             if($IsZIP) {
-                [version]$InstalledVersion=(Get-Content "$($InstallPath)\version.json" -ea 0 | ConvertFrom-Json)
+                [Version]$InstalledVersion=(Get-Content "$($InstallPath)\version.json" -ea 0 | ConvertFrom-Json)
             }
             else {
-                [System.Version]$InstalledVersion=$InstalledPackage[0].Version
+                [Version]$InstalledVersion=$InstalledPackage[0].Version
             }
             if(-not [bool]$InstalledVersion) {
                 Write-Host "Cannot determin the local version number." -ForegroundColor Red
@@ -84,20 +87,22 @@ function GitHubReleaseDownload {
     if(-not $DownloadOnly) {
         switch ((Get-Item "$($DownloadFile)").extension) {
             ".msi" {
-                Start-Process -FilePath msiexec.exe -ArgumentList "/I `"$($DownloadFile)`" /quiet"
+                msiexec.exe /I "$($DownloadFile)" /quiet
             }
             ".msixbundle" {
                 Add-AppPackage -path "$($DownloadFile)"
             }
             ".zip" {
                 [string]$UnzippedPath="$($DownloadLoc)\$($DownloadFile.BaseName)_Unzipped"
+                Write-Host "Expanding $($DownloadFile) ZIP file to $($UnzippedPath)"
                 Expand-Archive -Path "$($DownloadFile)" -DestinationPath "$($UnzippedPath)" -Force
                 $ExpandedFiles=(Get-ChildItem "$($UnzippedPath)")
                 if(($ExpandedFiles.count -eq 1) -and ($ExpandedFiles[0].Mode -like "d-----")) { # The expanded archive has its own root folder
                     $UnzippedPath=$ExpandedFiles[0].FullName
                 }
                 Move-Item -Path "$($UnzippedPath)\*" -Destination "$($InstallPath)" -Force
-                Convertto-Json -InputObject $GitHubVersion | Out-File "$($InstallPath)\version.json"
+                [string]$GitHubVersionString=$GitHubVersion
+                Convertto-Json -InputObject $GitHubVersionString | Out-File "$($InstallPath)\version.json"
             }
         }
     }

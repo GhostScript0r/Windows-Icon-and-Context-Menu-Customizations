@@ -1,7 +1,9 @@
 function GetDefaultWSL {
-    [OutputType([string[]])]
+    [OutputType([string])]
     param(
-        [switch]$GetCLSID
+        [switch]$GetCLSID,
+        [switch]$GetWSLver,
+        [switch]$GetWSLPath
     )
     if(!(Test-Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss")) { # WSL not installed
         return ""
@@ -12,9 +14,19 @@ function GetDefaultWSL {
     }
     else {
         [string]$DistroName=(Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss\$($DefaultWSL_CLSID)").DistributionName
+        [string]$DistroPath=(Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss\$($DefaultWSL_CLSID)").BasePath
+        [int]$DistroVer=(Get-ItemProperty -Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Lxss\$($DefaultWSL_CLSID)").Version
         $DistroName=$DistroName.Replace('-',' ')
         $TextInfo = (Get-Culture).TextInfo
         $DistroName=$TextInfo.ToTitleCase($DistroName)
-        return $DistroName
+        if($GetWSLver) {
+            return $DistroVer
+        }
+        elseif($GetWSLPath) {
+            return $DistroPath
+        }
+        else {
+            return $DistroName
+        }
     }
 }

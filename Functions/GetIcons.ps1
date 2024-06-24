@@ -50,16 +50,9 @@ function GetDistroIcon {
         Write-Host "This is an icon for WSL distro or WSA"
         # Download basic icon for VHD file. Needs 7z.exe to work
         if(!(Test-Path "$($AppDataDir)\VHD.png")) {
-            [string]$ZipAppInstalled=(Get-Childitem "C:\Program files\*zip").name
-            if($ZipAppInstalled -like "PeaZip") {
-                [string]$ZipCommand="C:\Program files\PeaZip\res\bin\7z\7z.exe"
-            }
-            elseif($ZipAppInstalled -like "7*zip") {
-                [string]$ZipCommand="C:\Program files\7-zip\7z.exe"
-            }
-            else {
-                Write-Host "ZIP program not installed. Icons cannot be created" -ForegroundColor Red
-                return
+            [string]$ZipCommand=(FindDefaultZipApp)
+            if(!($ZipCommand)) {
+                exit
             }
             Write-Host "Extracting hard drive icon from imageres.dll" -ForegroundColor Yellow
             . "$($ZipCommand)" e -y C:\Windows\SystemResources\imageres.dll.mun -o"$($AppDataDir)" .rsrc/ICON/$DLLIconNr
