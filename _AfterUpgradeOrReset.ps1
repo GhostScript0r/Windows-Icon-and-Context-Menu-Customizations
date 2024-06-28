@@ -20,6 +20,12 @@ else {
 }
 # [version]$LastBuildVer=0.0.0.0
 if($OOBE) {
+    # Change computer name
+    if($env:computername -notlike "MACBOOKPRO") {
+        Rename-Computer -NewName "MACBOOKPRO"
+        . "$($PSScriptRoot)\Functions\BallonNotif.ps1"
+        BallonNotif "Need to restart computer to make sure the change of computer name takes effect."
+    }
     # Run accompanying programs
     powershell.exe -File "$($PSScriptRoot)\InstallPrograms.ps1"
     powershell.exe -File "$($PSScriptRoot)\AppData_Symlink.ps1"
@@ -50,6 +56,7 @@ if($LastBuildVer -ne $CurrentBuildVer) {
         powershell.exe -File "$($PSScriptRoot)\RefreshAppAndRemoveUselessApps.ps1"
     }
     Start-Process -FilePath CleanMgr.exe -ArgumentList '/sagerun:1'
+    Dism.exe /online /Cleanup-Image /StartComponentCleanup /ResetBase
     if($CurrentBuildVer.Build -ge 22600) { # Latest Windows 11
         # 37969115 Desktop search bar
         # 38613007 new details pane
@@ -63,5 +70,19 @@ if($LastBuildVer -ne $CurrentBuildVer) {
 }
 if($OOBE) {
     # ________ Enable and disable Windows features __________
-    
+    [string[]]$FeaturesToEnable=@("LegacyComponents","DirectPlay","HypervisorPlatform","Microsoft-Hyper-V-All","Microsoft-Hyper-V","Microsoft-Hyper-V-Tools-All","Microsoft-Hyper-V-Management-Clients","Microsoft-Hyper-V-Services","Microsoft-Hyper-V-Management-PowerShell","Microsoft-Hyper-V-Hypervisor")
+    if($CurrentBuildVer.Build -ge 19042) {
+        $FeaturesToEnable=$FeaturesToEnable+@("Microsoft-Windows-Subsystem-Linux")
+    }
+    [string[]]$FeaturesToDisable=@("Printing-XPSServices-Features","MediaPlayback")
+    foreach($Feature in $FeaturesToEnable) {
+        if((Get-WindowsOptionalFeature -online -FeatureName $Feature).State -like "Disabled") {
+            Enable-WindowsOptionalFeature -online -featurename $feature
+        }
+    }
+    foreach($Feature in $FeaturesToDisable) {
+        if((Get-WindowsOptionalFeature -online -FeatureName $Feature).State -like "Enabled") {
+            Disable-WindowsOptionalFeature -online -featurename $feature
+        }
+    }
 }

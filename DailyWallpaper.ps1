@@ -40,8 +40,8 @@ else {
     SetValue "HKCU\Control Panel\Desktop" -Name "Wallpaper" -Value "$($LocalWppr)"
     SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers" -Name "BackgroundHistoryPath0" -Value "$($LocalWppr)"
     SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers" -Name "BackgroundType" -Type "4" -Value 0
-    SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "Wallpaper" -Value "$($LocalWppr)"
-    SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "WallpaperStyle" -Type "4" -Value 0
+    # SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "Wallpaper" -Value "$($LocalWppr)"
+    # SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "WallpaperStyle" -Type "4" -Value 0
     RUNDLL32.EXE USER32.DLL,UpdatePerUserSystemParameters 1, True # Update Wallpaper
 }
 if($OpenLink) {

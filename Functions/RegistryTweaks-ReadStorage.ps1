@@ -30,7 +30,12 @@ function UpdateStorageInfo {
                 else { # This is WSA drive
                     [string]$DistroVHDPath="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalCache\userdata.*vhdx"
                 }
-                $VHDXSize=ReadableFileSize(GetFileSizeOnDisk "$($DistroVHDPath)") # WSA VHDX is some new sort. File size ≠ occupied disk size
+                if((Get-Item "$($DistroVHDPath)").mode -like "d?----") { # WSL1 folder
+                    $VHDXSize=Readablefilesize((Get-ChildItem "$($DistroVHDPath)" -Force -Recurse | Measure-Object -Sum Length).Sum)
+                }
+                else {
+                    $VHDXSize=ReadableFileSize(GetFileSizeOnDisk "$($DistroVHDPath)") # WSA VHDX is some new sort. File size ≠ occupied disk size
+                }
                 CreateKey "Registry::HKCR\CLSID\$($Drive)" -StandardValue "$($DriveName) ($($VHDXSize) belegt)"
             }
             elseif((Get-ItemProperty "Registry::HKCR\CLSID\$($Drive)").DescriptionID -eq 9) { # this is a network drive

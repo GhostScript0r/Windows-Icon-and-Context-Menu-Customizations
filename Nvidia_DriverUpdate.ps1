@@ -18,7 +18,7 @@ catch {
     exit
 }
 Write-Host "Driver v$($InstalledNVDriverVer) for $($nVidiaGPU.Name) installed" -ForegroundColor Cyan
-$link = Invoke-WebRequest -Uri "https://www.nvidia.com/Download/processFind.aspx?osid=57&whql=1&dtcid=1" -Method GET -UseBasicParsing
+$link = Invoke-WebRequest -Uri "https://www.nvidia.com/Download/processFind.aspx?osid=57&whql=1&dtcid=1" -Method GET
 $link -match '<td class="gridItem">([^<]+?)</td>' | Out-Null
 $LatestNVDriverVer = $matches[1]
 Write-Host "Latest version ist `t`t$LatestNVDriverVer"

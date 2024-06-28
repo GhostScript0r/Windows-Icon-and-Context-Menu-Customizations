@@ -534,7 +534,8 @@ else {
 }
 [string]$WSLIcon="`"$($WSLLocation)`",0"
 if([System.Environment]::OSVersion.Version.Build -lt 18000) { # WSL.exe gets an icon since WSL2 (1903)
-    
+    GetDistroIcon -Iconforlnk
+    $WSLIcon="$($env:USERPROFILE)\Links\Tux.ico"
 }
 CreateFileAssociation @("Directory\Background","Directory","LibraryFolder\background") `
     -ShellOperations @("cmd","VSCode","VSCodeWithAdmin","git_shell","git_gui","Powershell","PowershellWithAdmin","WSL") `
@@ -606,6 +607,9 @@ $SysFileAssoExt=(Get-ChildItem "Registry::HKEY_CLASSES_ROOT\SystemFileAssociatio
 foreach($AssoExt in $SysFileAssoExt) {
     if(Test-Path "Registry::$($AssoExt.name)\shell\setdesktopwallpaper") {
         CreateFileAssociation "$($AssoExt.name)" -ShellOperations "setdesktopwallpaper" -Icon "imageres.dll,-110"
+        if([System.Environment]::OSVersion.Version.Build -lt 22000) {
+            CreateFileAssociation "$($AssoExt.name)" -ShellOperations "3d edit" -LegacyDisable 1
+        }
     }
 }
 # -------Audio and video files-------
@@ -749,7 +753,7 @@ CreateFileAssociation @("xmlfile","$($VSCodeVerHKCR).xml","xml_auto_file") -File
 Remove-Item "Registry::HKCR\xmlfile\ShellEx\IconHandler" -ea 0
 # ------- PS1 Script ------
 CreateFileAssociation @("Microsoft.PowerShellScript.1") -FileAssoList @("ps1")  -DefaultIcon "$($VSCodeIconsLoc)\powershell.ico" -ShellOperations @("open","edit","runas") -Icon @("scrptadm.dll,-7","`"$($VSCodeLocation)`",0","C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe,1") -MUIVerb @("@`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`",-108","","") -Command @("`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`"  `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`"","`"$($VSCodeLocation)`" `"%1`"","`"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`" `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`" -Verb RunAs")
-CreateFileAssociation "SystemFileAssociations\.ps1" -ShellOperations "Windows.PowerShell.Run" -LegacyDisable $true
+CreateFileAssociation "SystemFileAssociations\.ps1" -ShellOperations @("0","Windows.PowerShell.Run") -LegacyDisable @(1,1)
 Remove-Item "Registry::HKCR\Microsoft.PowerShellScript.1\shell\0" -ea 0
 # ------- LOG File ------
 SetValue "HKCR\.log" -Name "Content Type" -Value "text/plain"
@@ -1043,26 +1047,32 @@ CreateKey "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\
 CreateKey "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}\DefaultIcon" -StandardValue "imageres.dll,-120" # Network places
 # --------------OneDrive---------------
 # Change OneDrive (private) and OneDrive (business) icon and name
-# if(Test-Path $OneDriveInstallLoc) {
-    [object[]]$OneDriveEntries=(Get-ChildItem "Registry::HKCU\Software\Microsoft\OneDrive\Accounts\" | `
-        Where-object { ($_ | Get-ItemProperty).UserEmail -like "*@*" }) # Only entries with proper E-Mail addresses are considered.
-    foreach($OneDriveEntry in $OneDriveEntries) {
-        [string]$OneDriveCLSID=(Get-ItemProperty "Registry::$($OneDriveEntry.Name)").NamespaceRootId
-        [string]$OneDriveFolderLoc=(Get-ItemProperty "Registry::$($OneDriveEntry.Name)").UserFolder
-        if($OneDriveEntry.Name -like "*Personal") {
-            [string]$OneDriveIcon="imageres.dll,-1040" # "imageres.dll,-1040" # 1306 is my suitcase
-        }
-        elseif($OneDriveEntry.Name -like "*Business*") {
-            [string]$OneDriveIcon="`"$($OneDriveInstallLoc)`",-589"
-        }
-        MkDirCLSID $OneDriveCLSID -Name "OneDrive" -Icon "$($OneDriveIcon)" -FolderType 9 -TargetPath "$($OneDriveFolderLoc)" -FolderValueFlags 0x28 # 0x30
-        if($OneDriveEntry.Name -like "*Personal*") {
-            MakeReadOnly "HKCU\Software\Classes\CLSID\$($OneDriveCLSID)" # -InclAdmin
-            CreateKey "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($OneDriveCLSID)"
-            MakeReadOnly "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($OneDriveCLSID)" -InclAdmin
-        }
+[object[]]$OneDriveEntries=(Get-ChildItem "Registry::HKCU\Software\Microsoft\OneDrive\Accounts\" | `
+    Where-object { ($_ | Get-ItemProperty).UserEmail -like "*@*" }) # Only entries with proper E-Mail addresses are considered.
+foreach($OneDriveEntry in $OneDriveEntries) {
+    [string]$OneDriveCLSID=(Get-ItemProperty "Registry::$($OneDriveEntry.Name)").NamespaceRootId
+    [string]$OneDriveFolderLoc=(Get-ItemProperty "Registry::$($OneDriveEntry.Name)").UserFolder
+    if($OneDriveEntry.Name -like "*Personal") {
+        [string]$OneDriveIcon="imageres.dll,-1040" # "imageres.dll,-1040" # 1306 is my suitcase
     }
-# }
+    elseif($OneDriveEntry.Name -like "*Business*") {
+        [string]$OneDriveIcon="`"$($OneDriveInstallLoc)`",-589"
+    }
+    if([System.Environment]::OSVersion.Version.Build -ge 26100) { # Latest version of OneDrive supported. Otherweise let OneDrive app manage the CLSID entry
+        MkDirCLSID $OneDriveCLSID -Name "OneDrive" -Icon "$($OneDriveIcon)" -FolderType 9 -TargetPath "$($OneDriveFolderLoc)" -FolderValueFlags 0x28 # 0x30
+    }
+    else {
+        Mkdirclsid $Onedriveclsid -RemoveCLSID
+        MkDirCLSID $Onedriveclsid -Name "OneDrive" -Icon "$($OnedriveIcon)" -FolderType 9 -IsShortcut -FolderValueFlags 0x28
+        CreateFileAssociation "CLSID\$($OneDriveCLSID)" -defaulticon "imageres.dll,-1040" -shelloperations "Open" -icon "$($OneDriveIcon)" -Command "explorer.exe `"$($OneDriveFolderLoc)`""
+        CreateKey "HKCR\CLSID\$($OneDriveCLSID)" -StandardValue "OneDrive"
+    }
+    if($OneDriveEntry.Name -like "*Personal*") {
+        MakeReadOnly "HKCU\Software\Classes\CLSID\$($OneDriveCLSID)" # -InclAdmin
+        CreateKey "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($OneDriveCLSID)"
+        MakeReadOnly "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($OneDriveCLSID)"
+    }
+}
 # ________________
 # Hide unwanted drive letters
 [string[]]$DriveLetters=(Get-PSDrive -PSProvider FileSystem).Name
@@ -1117,6 +1127,8 @@ if(Test-Path "$($SpeedCrunchPath)") {
 }
 # Replace Microsoft People with Google Contacts
 CreateFileAssociation "ms-people" -ShellOperations "open" -Command "$($BrowserOpenAction.Replace(" %1"," contacts.google.com"))"
+# Use Google chrome to open mailto link
+CreateFileAssociation "Protocols\Handler\mailto" -ShellOperations "open" -Command "$($BrowserOpenAction)"
 # Use QWERTZ German keyboard layout for Chinese IME
 [string]$CurrentKeyboardLayout=(Get-ItemProperty -LiteralPath "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Keyboard Layouts\00000804")."Layout File"
 if($CurrentKeyboardLayout -notlike "KBDGR.DLL") {
@@ -1173,5 +1185,11 @@ SetValue "HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlog
 if([System.Environment]::OSVersion.Version.Build -lt 19041) {
     SetValue "HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Power" -Name "Hiberbootenabled" -Type "4" -Value 0
 }
+# Show seconds in clock for Windows 10
+if([System.Environment]::OSVersion.Version.Build -lt 20000) {
+    SetValue "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowSecondsInSystemClock" -Type "4" -Value 1
+}
 # update storage information
 UpdateStorageInfo 
+# Use dark mode
+SetValue "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "SystemUsesLightTheme" -Type "4" -Value 0

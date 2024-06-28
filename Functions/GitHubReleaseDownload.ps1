@@ -11,7 +11,7 @@ function GitHubReleaseDownload {
         [string]$InstallPath=""
     )
     $response = Invoke-WebRequest -Uri "https://api.github.com/repos/$($RepoName)/releases/latest"
-    $JsonObj = ConvertFrom-Json $response.content
+        $JsonObj = ConvertFrom-Json $response.content
     try {
         [Version]$GitHubVersion=($JsonObj.tag_name -replace "[^0-9.]")
     }

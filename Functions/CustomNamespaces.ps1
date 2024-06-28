@@ -11,7 +11,7 @@ function GenerateCustomNamespace {
         switch ($Name) {
             'rClone' {
                 Write-Host "Check if rClone is already installed"
-                [string]$rClonePath="$($env:Localappdata)\Microsoft\WinGet\Links\rclone.exe"
+                [string]$rClonePath="$($env:Localappdata)\Programs\rclone\rclone.exe"
                 if(Test-Path $rClonePath) { # rClone installed # $lastexitcode -eq 0
                     [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','') | Where-Object {$_ -NotIn @('Box','Google_Drive','Google_Photos')} # RClone Drive Names is stored with [] in rclone.conf
                     for($i=0;$i -lt 9; $i++) { # This script can display max. 10 CLSID entries.
