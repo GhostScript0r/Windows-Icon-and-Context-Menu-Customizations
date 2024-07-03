@@ -6,7 +6,7 @@ RunAsAdmin "$($PSCommandPath)"
 # ______________________________
 # Install WSL2 and Kali Linux
 if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem-Linux").State -like "enabled") {
-	if($CurrentBuildVer.Build -ge 19041) {
+	if(($CurrentBuildVer.Build -ge 19041) -and (-not (Test-Path "C:\Program Files\WSL\wsl.exe"))) {
 		GitHubReleaseDownload "microsoft/WSL" -OtherStringsInFileName ".x64.msi" -InstallationName "Windows Subsystem for Linux"
 	} # Older releases does not support WSL2 kernel on GitHub, needs to use update from Microsoft Update Catalog instead
 	elseif($CurrentBuildVer.Build -ge 18000) { # WSL2 support starts from Windows 10 1903. Older versions like 2019 LTSC (1809) does not support WSL2 and can only run WSL1

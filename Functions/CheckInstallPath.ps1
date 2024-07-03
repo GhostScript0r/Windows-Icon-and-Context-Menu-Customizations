@@ -12,15 +12,18 @@ function CheckInstallPath {
     for($i=0;$i -lt $InstallLocation.length;$i++) {
         if(Test-Path "$($InstallLocation[$i])\$($Program)") {
             [string]$ProgramLocation="$($InstallLocation[$i])\$($Program)"
+            Write-Host "$(Split-Path $Program -leaf) is installed in $($InstallLocation[$i])"
             break
         }
         else {
             [string]$ProgramLocation=""
         }
     }
-    # if($i -eq $InstallLocation.length) { # None found
-    #     [string]$ProgramLocation=""
-    # }
-    [string]$ProgramLocation=(Get-Item "$($ProgramLocation)").FullName # Use Get-Item in case the input includes wildcard ? or *
-    return $ProgramLocation
+    try {
+        [string]$ProgramLocation=(Get-Item "$($ProgramLocation)").FullName # Use Get-Item in case the input includes wildcard ? or *
+        return $ProgramLocation
+    }
+    catch {
+        return ""
+    }
 }

@@ -34,7 +34,7 @@ function GetDistroIcon {
                 Invoke-WebRequest -Uri $hash.value -OutFile "$($DownloadTargetFile)"
             }
             magick.exe "$($AppDataDir)\$($hash.Name).png" -trim -resize 256x256 -background '#00000000' -gravity center  -extent 256x256 "$($AppDataDir)\$($hash.Name).png"
-            magick.exe -background transparent  "$($AppDataDir)\$($hash.Name).png" -define icon:auto-resize=16,24,32,48,64,72,96,128,256 "$($AppDataDir)\$($hash.Name).ico"
+            magick.exe -background transparent "$($AppDataDir)\$($hash.Name).png" -define icon:auto-resize=16,24,32,48,64,72,96,128,256 "$($AppDataDir)\$($hash.Name).ico"
             Write-Host "$($hash.Name).ico created and can be used in shortcuts" -ForegroundColor Green
         }
         return # no need to return anything.
@@ -106,6 +106,7 @@ function GetDistroIcon {
             }
         }
         magick.exe "$($AppDataDir)\$($DistroName).png" -trim -resize 128x128 "$($AppDataDir)\$($DistroName).png"
+        magick.exe -background transparent "$($AppDataDir)\$($DistroName).png" -define icon:auto-resize=16,24,32,48,64,72,96,128 "$($AppDataDir)\$($hash.Name).ico"
         # if($DistroName -like "Android") {
         #     magick.exe "$($AppDataDir)\$($DistroName).png" -gravity south -crop 128x74+0+0 "$($AppDataDir)\$($DistroName).png" 
         # }

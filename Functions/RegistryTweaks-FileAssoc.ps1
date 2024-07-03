@@ -1,5 +1,4 @@
 . "$($PSScriptRoot)\RegistryTweaks-BasicOps.ps1"
-
 function CreateFileAssociation {
     # Create file association structure, containing default icon, shell open entry commands and icons, can be in multiple places
     param(
