@@ -185,6 +185,7 @@ CreateFileAssociation $BrowserPDFs -ShellOperations "open" -Icon "ieframe.dll,-3
 if($BrowserPath -like "*chrome.exe*") {
     $BrowserPDFs = $BrowserPDFs + @("ChromePDF")
     CreateFileAssociation "ChromePDF" -FileAssoList ".pdf" -DefaultIcon "$($env:Userprofile)\Links\Adobe Acrobat.ico" -ShellOperations @("open") -MUIVerb @("@SearchFolder.dll,-10496") -Icon @("`"$($BrowserPath)`",0") -Command @("`"$($BrowserPath)`" `"%1`"") # If Adobe Acrobat is not working: Add  before %1
+    CreateKey "HKCR\.pdf" -StandardValue "ChromePDF"
 }
 # SumatraPDF related
 [string]$SumatraPDFLoc=$(CheckInstallPath "SumatraPDF\sumatrapdf.exe")
