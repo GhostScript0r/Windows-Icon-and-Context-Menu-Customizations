@@ -85,4 +85,8 @@ if($OOBE) {
             Disable-WindowsOptionalFeature -online -featurename $feature
         }
     }
+    # Install Powershell modules
+    foreach($PSMdl in @("Microsoft.PowerShell.ConsoleGuiTools")) {
+        Install-Module $PSMdl
+    }
 }

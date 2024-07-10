@@ -4,13 +4,24 @@ function BallonNotif {
         [parameter(ParameterSetName='Info', Mandatory=$true, Position=0)]
         [string]$Info,
         [string]$Title,
-        [switch]$OnHold
+        [switch]$OnHold,
+        [string]$NotifType=""
     )
     Add-Type -AssemblyName System.Windows.Forms 
     $balloon = New-Object System.Windows.Forms.NotifyIcon
     $path = (Get-Process -id $pid).Path
-    $balloon.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path) 
-    $balloon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Warning 
+    $balloon.Icon = [System.Drawing.Icon]::ExtractAssociatedIcon($path)
+    switch($NotifType) {
+        "Warning" {
+            $balloon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Warning 
+        }
+        "Error" {
+            $balloon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Error
+        }
+        "Info" {
+            $balloon.BalloonTipIcon = [System.Windows.Forms.ToolTipIcon]::Info
+        }
+    }
     $balloon.BalloonTipText = $Info
     $balloon.BalloonTipTitle = $Title 
     $balloon.Visible = $true 
