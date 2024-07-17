@@ -24,8 +24,7 @@ if($StorageRefreshOnly) {
     UpdateStorageInfo
     exit
 }
-# The 5-minute storage refresh script ends at the place above. 
-# #######################################################
+# The 5-minute storage refresh script ends at the place above.
 # Here starts the script that will only be run manually or when a system version update is done.
 # > Find file location of Windows Terminal app and copy the profile icons out
 [bool]$WTInstalled=([System.Environment]::OSVersion.Version.Build -ge 19041) -and ((Get-AppxPackage  Microsoft.WindowsTerminal).InstallLocation -gt 0)
@@ -56,17 +55,9 @@ if($WSLEnabled) {
         Copy-Item -Path "$(Split-Path $WSLLocationUWP)\Images\$(Split-Path $WSLIconPNG -Leaf)" -Destination "$(Split-Path $WSLIconPNG)"
     }
 }
-# > Find file location of WMP UWP
-[bool]$WMPUWPInstalled=((Get-AppxPackage *ZuneMusic*).count -gt 0)
 WSARegistry # Add WSA to registry
-# > Remove PowerRename
-# if((Get-AppxPackage Microsoft.PowerToys.PowerRenameContextMenu).count -gt 0) {
-#     Remove-Item "Registry::HKCR\AllFilesystemObjects\shellex\ContextMenuHandlers\PowerRenameEx" -Force -ea 0
-# }
-#Generate namespaces for cloud drives and custom folders
-GenerateCustomNamespace @("Dropbox","Google Drive","rClone","Games")
-# Use BIOS time as UTC
-SetValue "HKLM\SYSTEM\ControlSet001\Control\TimeZoneInformation" -Name "RealTimeIsUniversal" -Type 4 -Value 1
+GenerateCustomNamespace @("Dropbox","Google Drive","rClone","Games") #Generate namespaces for cloud drives and custom folders
+SetValue "HKLM\SYSTEM\ControlSet001\Control\TimeZoneInformation" -Name "RealTimeIsUniversal" -Type 4 -Value 1 # Use BIOS time as UTC
 # NVidia Shadow Play - hide mouse button
 $nVidiaShadowPlayReg=@'
 Windows Registry Editor Version 5.00
@@ -306,7 +297,7 @@ if($WSLEnabled) {
             $WSLIconDistro=@($WSLIconPNG,$WSLLocation)
         }
         if($WTInstalled) {
-            [string]$WSLMenuCommand="wt.exe -p `"$($DistroName)`""
+            [string]$WSLMenuCommand="wt.exe -p `"$($DistroName)`" -d `"%V`""
         }
         else {
             [string]$WSLMenuCommand="wsl.exe --cd `"%V`""
@@ -441,6 +432,12 @@ CreateFileAssociation @("bashfile") -FileAssoList @("sh","bash") -ShellOperation
 if($BrowserIcon -like "ieframe.dll,-31065") {
     $OpenHTMLVerb="@ieframe.dll,-21819" # Open with Edge
 }
+if([System.Environment]::OSVersion.Version.Build -ge 22000) {
+    [string]$HTMLIcon="shell32.dll,-14"
+}
+else {
+    [string]$HTMLIcon="ieframe.dll,-110"
+}
 CreateFileAssociation @("htmlfile","$($VSCodeVerHKCR).htm","$($VSCodeVerHKCR).html","MSEdgeHTM","Applications\MSEdge.exe") -DefaultIcon "ieframe.dll,-210" -ShellOperations @("open","open2","edit","print","printto") -Icon @("$($BrowserIcon)","`"$($SumatraPDFLoc)`",0","`"$($VSCodeLocation)`",0","DDORes.dll,-2414","DDORes.dll,-2413") -Command @("$($BrowserOpenAction)","`"$($SumatraPDFLoc)`" `"%1`"","`"$($VSCodeLocation)`" `"%1`"","","") -MUIVerb @("$($OpenHTMLVerb)","","","","") -LegacyDisable @(0,0,0,1,1) -ShellOpDisplayName @("","Mit SumatraPDF lesen","","","")
 MakeReadOnly "HKCR\MSEdgeHTM\DefaultIcon" -InclAdmin
 MakeReadOnly "HKCR\htmlfile\DefaultIcon" -InclAdmin
@@ -452,7 +449,7 @@ Remove-Item -Path "Registry::HKCR\InternetShortcut\ShellEx\ContextMenuHandlers\{
 CreateFileAssociation "InternetShortcut" -DefaultIcon "url.dll,-5" -ShellOperations @("open","edit","print","printto") -Icon @("$($BrowserIcon)","`"$($VSCodeLocation)`",0","ddores.dll,-2414","ddores.dll,-2413") -MUIVerb @("@synccenter.dll,-6102",,"","","") -LegacyDisable @(0,0,1,1) -Command @("powershell.exe -Command `"`$URL= ((Get-Content '%1') -like 'URL=*') -replace 'URL=',' '; Start-Process '$($BrowserPath)' -ArgumentList `$URL`"","`"$($VSCodeLocation)`" `"%1`"","","")
 # --------Google Chrome HTML (if Chrome installed)--------
 if($BrowserPath -like "*chrome.exe*") {
-    CreateFileAssociation "ChromeHTML" -DefaultIcon "shell32.dll,-14" `
+    CreateFileAssociation "ChromeHTML" -DefaultIcon "$($HTMLIcon)" `
     -ShellOperations @("open","edit") -MUIVerb @("@SearchFolder.dll,-10496","") `
     -Icon @("`"$($BrowserPath)`",0","`"$($VSCodeLocation)`",0") `
     -Command @("`"$($BrowserPath)`" `"%1`"","`"$($VSCodeLocation)`" `"%1`"")

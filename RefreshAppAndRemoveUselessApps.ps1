@@ -96,6 +96,9 @@ if($OfficeCleanupOnly -or ((Get-AppxPackage "Microfost.WindowsStore").count -eq 
 if(((Get-AppxPackage "*WindowsTerminalPreview*") -like "*WindowsTerminalPreview*")) {
 	$uselessapps = $uselessapps + @("Microsoft.WindowsTerminal")
 }
+if(Test-Path "C:\Program Files\NVIDIA Corporation\NVIDIA app\CEF\NVIDIA App.exe") {
+	$uselessapps = $uselessapps + @("NVIDIACorp.NVIDIAControlPanel")
+}
 [bool[]]$MPlayersInstalled=@((Test-Path "C:\Program Files\VideoLAN\VLC\vlc.exe"),`
 ((Get-ItemProperty -Path "Registry::HKLM\Software\Microsoft\Active Setup\Installed Components\{22d6f312-b0f6-11d0-94ab-0080c74c7e95}" -ErrorAction SilentlyContinue).isinstalled -eq 1))
 if($MPlayersInstalled -contains $true) {

@@ -28,12 +28,12 @@ if($OOBE) {
     }
     # Run accompanying programs
     powershell.exe -File "$($PSScriptRoot)\InstallPrograms.ps1"
-    powershell.exe -File "$($PSScriptRoot)\AppData_Symlink.ps1"
+    powershell.exe -File "$($PSScriptRoot)\AppDataSymlink.ps1"
     powershell.exe -File "$($PSScriptRoot)\CreateShortcutIcon.ps1"
     # Import all tasks
     powershell.exe -File "$($PSScriptRoot)\ImportTasks.ps1"
     # Local security policy: Enable current account to create symbolic link
-    ChangeSecPol -Category "user_rights" -Item "SeCreateSymbolicLinkPrivilege" -Add -Value "*$((Get-WmiObject win32_useraccount | Where-Object {$_.name -like "chengh"}).sid)"
+    ChangeSecPol -Category "user_rights" -Item "SeCreateSymbolicLinkPrivilege" -Add -Value "*$((Get-WmiObject win32_useraccount | Where-Object {$_.name -like $env:username}).sid)"
     # ___________PowerCfg settings_____________
     # Disable sleep or hibernate after some time
     [string[]]$PowerCFGOptions=@("monitor-timeout-dc","monitor-timeout-ac","standby-timeout-dc","standby-timeout-ac","disk-timeout-dc","disk-timeout-ac","hibernate-timeout-dc","hibernate-timeout-ac")

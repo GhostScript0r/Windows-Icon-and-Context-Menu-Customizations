@@ -125,17 +125,20 @@ $listofprograms=$listofprograms+@(`
 # "Docker.DockerDesktop",`
 "Git.Git","OpenJS.NodeJS",`
 
- "7zip.7zip",` #"PeaZip",`
+"7zip.7zip",` #"PeaZip",`
 "OBSProject.OBSStudio",`
 "Datronicsoft.SpacedeskDriver.Server",`
 "Google.Chrome","Google.ChromeRemoteDesktopHost",` #"TeamViewer.TeamViewer",`
-"Ausweisapp",`
+"Governikus.Ausweisapp",`
 
 # Gaming renderer
 "Nvidia.PhysX","Microsoft.DirectX",`
 
+# GPU Tool
+"Nvidia.CUDA",`
+
 # Java Runtimes
-"Oracle.JavaRuntimeEnvironment","Oracle.JDK.21"`
+"Oracle.JavaRuntimeEnvironment","Oracle.JDK.21","Oracle.JDK.22","Oracle.JDK.17"`
 
 # Network
 "PrivateInternetAccess.PrivateInternetAccess",`
@@ -154,7 +157,7 @@ $listofprograms=$listofprograms+@(`
 "WiresharkFoundation.Wireshark","Insecure.Npcap",`
 
 # Games launcher
-# "EpicGames.EpicGamesLauncher",
+"EpicGames.EpicGamesLauncher",
 
 # Lenovo Legion toolkit
 "BartoszCichecki.LenovoLegionToolkit",`
@@ -165,7 +168,7 @@ $listofprograms=$listofprograms+@(`
 if([System.Environment]::OSVersion.Version.Build -ge 19041) {
 	$listofprograms=$listofprograms+@("Microsoft.PowerToys") # PowerToys requires Build 19041 or higher
 }
-if((Get-AppxPackage "Microsoft.WindowsStore").count -eq 0) { # This is a Windows 10 2019 LTSC without store.
+if((Get-AppxPackage "Microsoft.WindowsStore").count -eq 0) { # This is a Windows 10 LTSC without store.
 	$listofprograms+=@("Python3")
 }
 foreach ($program in $listofprograms)

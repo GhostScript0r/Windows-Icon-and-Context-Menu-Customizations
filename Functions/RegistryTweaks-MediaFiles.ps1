@@ -3,6 +3,8 @@ function MediaPlayerFileAssoc {
     param()
     # Check which media player is installed
     [string[]]$MPlayers=@("VLC","WMP Legacy","WMP UWP")
+    [bool]$WMPLegacyInstalled=((Get-ItemProperty -Path "Registry::HKLM\Software\Microsoft\Active Setup\Installed Components\{22d6f312-b0f6-11d0-94ab-0080c74c7e95}" -ea 0).isinstalled -eq 1)
+    [bool]$WMPUWPInstalled=((Get-AppxPackage *ZuneMusic*).count -gt 0)
     [bool[]]$MPlayersInstalled=@((Test-Path "C:\Program Files\VideoLAN"),`
     $WMPLegacyInstalled,` # Mentioned above to check if needed to take ownership of WMP11* keys
     $WMPUWPInstalled)

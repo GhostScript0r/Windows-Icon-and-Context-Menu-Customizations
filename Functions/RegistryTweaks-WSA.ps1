@@ -1,11 +1,14 @@
 function WSARegistry {
     . "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
+    . "$($PSScriptRoot)\FindDefaultZipApp.ps1"
+    . "$($PSScriptRoot)\GetIcons.ps1"
     # > Find file location of WSA
     [string]$WSAAppDataDir="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe"
+    [string]$WSAInstallLoc="$((Get-AppxPackage MicrosoftCorporationII.WindowsSubsystemForAndroid).InstallLocation)"
     if((Test-Path $WSAAppDataDir) -and ([System.Environment]::OSVersion.Version.Build -ge 19044)) { # WSA Installed
         [string[]]$WSAIcons=@("$($WSAAppDataDir)\LatteLogo.png","$($WSAAppDataDir)\app.ico")
         foreach($Icon in $WSAIcons) {
-            [string]$WSALocation="$((Get-AppxPackage MicrosoftCorporationII.WindowsSubsystemForAndroid).InstallLocation)\Assets\$(Split-Path $Icon -Leaf)"
+            [string]$WSALocation="$($WSAInstallLoc)\Assets\$(Split-Path $Icon -Leaf)"
             if((Test-Path "$($WSALocation)") -and (!(Test-Path "$($Icon)"))) {
                 Copy-Item "$($WSALocation)" "$(Split-Path -Path $Icon)"
             }
@@ -17,10 +20,11 @@ function WSARegistry {
         [string]$WSACLSID="{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}"
         MkDirCLSID $WSACLSID -Name "Android" -Icon "`"$($WSAIconsDistro[1])`"" -FolderType 6 -IsShortcut
         [string]$StartWSAAppCommandPrefix="$($env:Localappdata)\Microsoft\WindowsApps\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\WsaClient.exe /launch wsa://"
-        [string[]]$WSAContextMenu=@("open","cmd")
-        [string[]]$WSAContextMenuIcon=@("`"$($WSAIcons[1])`"","$($TerminalIconICO)")
-        [string[]]$WSAContextMenuName=@("Mit Android-Dateibrowser ansehen","WSA ADB-Shell starten")
-        [string[]]$WSAContextMenuCommand=@("$($StartWSAAppCommandPrefix)com.android.documentsui","wt.exe -p `"WSA ADB Shell`"")
+        [string]$WSAUserVHDX=(Get-Item "$($WSAAppDataDir)\LocalCache\userdata*.vhdx")[0].FullName
+        [string[]]$WSAContextMenu=@("open","cmd","zipopen")
+        [string[]]$WSAContextMenuIcon=@("`"$($WSAIcons[1])`"","$($TerminalIconICO)","$(FindDefaultZipApp -GetIcon)")
+        [string[]]$WSAContextMenuName=@("Mit Android-Dateibrowser ansehen","WSA ADB-Shell starten","VHD mit $(FindDefaultZipApp -GetName) browsen")
+        [string[]]$WSAContextMenuCommand=@("$($StartWSAAppCommandPrefix)com.android.documentsui","wt.exe -p `"WSA ADB Shell`"","`"$(FindDefaultZipApp -GetFM)`" `"$($WSAUserVHDX)`"")
         [string[]]$ExtraApps=@("com.android.settings") # "com.ghisler.android.TotalCommander",
         for($i=0;$i -lt $ExtraApps.count;$i++) {
             [string]$AppIconLoc = "$($env:LOCALAPPDATA)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalState\$(`
