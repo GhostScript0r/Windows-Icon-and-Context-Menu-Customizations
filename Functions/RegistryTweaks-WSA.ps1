@@ -19,12 +19,14 @@ function WSARegistry {
         }
         [string]$WSACLSID="{a373e8cc-3516-47ac-bf2c-2ddf8cd06a4c}"
         MkDirCLSID $WSACLSID -Name "Android" -Icon "`"$($WSAIconsDistro[1])`"" -FolderType 6 -IsShortcut
+        . "$($PSScriptRoot)\RegistryTweaks-ReadStorage.ps1"
+        UpdateStorageInfo -WSAOnly
         [string]$StartWSAAppCommandPrefix="$($env:Localappdata)\Microsoft\WindowsApps\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\WsaClient.exe /launch wsa://"
         [string]$WSAUserVHDX=(Get-Item "$($WSAAppDataDir)\LocalCache\userdata*.vhdx")[0].FullName
-        [string[]]$WSAContextMenu=@("open","cmd","zipopen")
-        [string[]]$WSAContextMenuIcon=@("`"$($WSAIcons[1])`"","$($TerminalIconICO)","$(FindDefaultZipApp -GetIcon)")
-        [string[]]$WSAContextMenuName=@("Mit Android-Dateibrowser ansehen","WSA ADB-Shell starten","VHD mit $(FindDefaultZipApp -GetName) browsen")
-        [string[]]$WSAContextMenuCommand=@("$($StartWSAAppCommandPrefix)com.android.documentsui","wt.exe -p `"WSA ADB Shell`"","`"$(FindDefaultZipApp -GetFM)`" `"$($WSAUserVHDX)`"")
+        [string[]]$WSAContextMenu=@("open","cmd","zipopen","WSAsettings")
+        [string[]]$WSAContextMenuIcon=@("imageres.dll,-190","`"$($WSAIconsDistro[1] -replace 'VHD','')`"","$(FindDefaultZipApp -GetIcon)","$($WSAIcons[1])")
+        [string[]]$WSAContextMenuName=@("Mit Android-Dateibrowser ansehen","WSA ADB-Shell starten","VHD mit $(FindDefaultZipApp -GetName) browsen","WSA-Einstellungen abrufen")
+        [string[]]$WSAContextMenuCommand=@("$($StartWSAAppCommandPrefix)com.android.documentsui","wt.exe -p `"WSA ADB Shell`"","`"$(FindDefaultZipApp -GetFM)`" `"$($WSAUserVHDX)`"","explorer.exe shell:AppsFolder\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe!SettingsApp")
         [string[]]$ExtraApps=@("com.android.settings") # "com.ghisler.android.TotalCommander",
         for($i=0;$i -lt $ExtraApps.count;$i++) {
             [string]$AppIconLoc = "$($env:LOCALAPPDATA)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalState\$(`
@@ -45,6 +47,7 @@ function WSARegistry {
             }
         }
         CreateFileAssociation "CLSID\$($WSACLSID)" -ShellOperations $WSAContextMenu -ShellOpDisplayName $WSAContextMenuName -Icon $WSAContextMenuIcon -Command $WSAContextMenuCommand
+        SetValue "HKCR\CLSID\$($WSACLSID)\shell\WSAsettings" -Name "Position" -Value "Bottom"
     }
     else { # WSA not installed
         MkDirCLSID $WSACLSID -RemoveCLSID -ea 0

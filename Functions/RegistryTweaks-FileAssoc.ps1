@@ -71,7 +71,12 @@ function CreateFileAssociation {
                             if(($Property -eq "MUIVerb") -and ($TargetValue -notlike "@*") -and ($TargetValue.length -ge 1)) {
                                 $TargetValue="@$($TargetValue)"
                             }
-                            SetValue "$($RegPath)\shell\$($ShellOperations[$i])" -Name $Property -Value "$($TargetValue)"
+                            if($TargetValue -like "*REMOVE") {
+                                Remove-ItemProperty -LiteralPath "Registry::$($RegPath)\shell\$($ShellOperations[$i])" -Name $Property
+                            }
+                            else {
+                                SetValue "$($RegPath)\shell\$($ShellOperations[$i])" -Name $Property -Value "$($TargetValue)"
+                            }
                         }
                     }
                 }
@@ -121,7 +126,12 @@ function CreateShellFolder {
         Copy-Item -Path "Registry::$($SubKey)" -Destination "Registry::$($RegRoot)\$($CLSID)" -Force -Recurse
     }
     SetValue "$($RegRoot)\$($CLSID)" -Name "DescriptionId" -type 4 -value $Category
-    SetValue "$($RegRoot)\$($CLSID)" -Name "MUIVerb" -value "$($MUIVerb)"
+    if($MUIVerb -like "*REMOVE") {
+        Remove-ItemProperty -LiteralPath "Registry::$($RegRoot)\$($CLSID)" -Name "MUIVerb"
+    }
+    else {
+        SetValue "$($RegRoot)\$($CLSID)" -Name "MUIVerb" -value "$($MUIVerb)"
+    }
     SetValue "$($RegRoot)\$($CLSID)" -Name "Infotip" -value "$($Infotip)"
     [int]$PinToTree=1
     if($DoNotPin) {

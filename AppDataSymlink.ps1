@@ -61,4 +61,4 @@ if($StartFolderInAppData.Mode -like "d????l") { # Start menu folder is already s
 elseif($StartFolderInAppData.Mode -like "d????-") { # Start menu folder is an actual folder
     Remove-Item "$($StartFolderInAppData)" -Recurse -Force -Confirm:$false
 }
-New-Item -Path "$($StartFolderInAppData)" -ItemType SymbolicLink -Value "$($StartFolder)"
+MkLKFile -LkPath "$($env:appdata)\microsoft\windows\start menu" -LkFilename "Programs" -TargetFilePath "$($StartFolder)"

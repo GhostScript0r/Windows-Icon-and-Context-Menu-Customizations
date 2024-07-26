@@ -1,7 +1,13 @@
 . "$($PSScriptRoot)\RegistryTweaks-BasicOps.ps1"
 . "$($PSScriptRoot)\GetFileSizeOnDisk.ps1"
+. "$($PSScriptRoot)\GetDefaultWSL.ps1"
+. "$($PSScriptRoot)\ReadableFileSize.ps1"
 function UpdateStorageInfo {
-    param()
+    param(
+        [switch]$WSLOnly,
+        [switch]$WSAOnly,
+        [switch]$NetDriveOnly
+    )
     [string[]]$CustomDrives=(Split-Path ((Get-ChildItem "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace").Name) -leaf)
     foreach($Drive in $CustomDrives) {
         if(!(Test-Path "Registry::HKCR\CLSID\$($Drive)")) { # the drive's definition is no longer present, possibly drive uninstalled, leaving a blank icon in explorer. Time to remove this entry
@@ -13,10 +19,29 @@ function UpdateStorageInfo {
             if($DriveNameKlammer -gt 0) { # Cloud drive name already
                 [string]$DriveName=$DriveName.Substring(0,$DriveNameKlammer-1)
             }
+            [int]$StorageType=(Get-ItemProperty "Registry::HKCR\CLSID\$($Drive)").DescriptionID
+            if($StorageType -eq 3) {
+                continue
+            }
             Write-Host "Recalculating drive size of $($DriveName)"
-            if((Get-ItemProperty "Registry::HKCR\CLSID\$($Drive)").DescriptionID -eq 6) { # this is WSL/WSA drive
+            if($StorageType -eq 6) { # this is WSL or WSA drive
                 if(Test-Path "Registry::HKCR\CLSID\$($Drive)\InProcServer32") { # this is WSL drive
-                    [string]$DistroVHDPath=$(GetDefaultWSL -GetWSLPath)
+                    if($WSAOnly -or $NetDriveOnly) {
+                        Write-Host "Skipped" -BackgroundColor White -ForegroundColor Black
+                        continue
+                    }
+                    if($Drive -eq "{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}") { # Default WSL
+                        [string]$DistroVHDPath=$(GetDefaultWSL -GetVHDPath)
+                    }
+                    else {
+                        [string[]]$ExtraDistroLocs=(GetExtraWSL -GetVHDPath)
+                        for($i=0;$i -lt $ExtraDistroLocs.count; $i++) {
+                            if($Drive -like "{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC$($i)}") {
+                                [string]$DistroVHDPath=$ExtraDistroLocs[$i]
+                                break
+                            }
+                        }
+                    }
                     [int]$WSLVer=$(GetDefaultWSL -GetWSLver)
                     switch($WSLVer) {
                         1 {
@@ -28,6 +53,10 @@ function UpdateStorageInfo {
                     }
                 }
                 else { # This is WSA drive
+                    if($WSLOnly -or $NetDriveOnly) {
+                        Write-Host "Skipped" -BackgroundColor White -ForegroundColor Black
+                        continue
+                    }
                     [string]$DistroVHDPath="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForAndroid_8wekyb3d8bbwe\LocalCache\userdata.*vhdx"
                 }
                 if((Get-Item "$($DistroVHDPath)").mode -like "d?----") { # WSL1 folder
@@ -38,7 +67,11 @@ function UpdateStorageInfo {
                 }
                 CreateKey "Registry::HKCR\CLSID\$($Drive)" -StandardValue "$($DriveName) ($($VHDXSize) belegt)"
             }
-            elseif((Get-ItemProperty "Registry::HKCR\CLSID\$($Drive)").DescriptionID -eq 9) { # this is a network drive
+            elseif($StorageType -eq 9) { # this is a network drive
+                if($WSLOnly -or $WSAOnly) {
+                    Write-Host "Skipped" -BackgroundColor White -ForegroundColor Black
+                    continue
+                }
                 if((Test-NetConnection box.com).pingsucceeded) { # Only calculate disk size if there's internet connection.
                     if((($DriveName -like "Google*" -and (Test-Path "C:\Program Files\Google\Drive File Stream\drive_fs.ico")) -or ($DriveName -like "pCloud*" -and (Test-Path "C:\Program Files\pCloud Drive\pcloud.exe"))) -and ($DriveName -NotLike "*Yahoo*")) { # Virtual drives created by Google Drive and pCloud app
                         if($DriveName -like "Google*") {$DriveLetter="A"}
@@ -57,8 +90,8 @@ function UpdateStorageInfo {
                         }
                         elseif($DriveName -like "OneDrive*") {
                             $TotalSpace = "5 GB"
-                            if($DriveName -like "OneDrive Yahoo*") {
-                                $OneNoteSize=2.01GB
+                            if(($DriveName -like "OneDrive Yahoo*") -and !(Test-Path "$($env:Userprofile)\$($DriveName -creplace ' ','_')\*\*.one")) {
+                                $OneNoteSize=2GB
                             }
                             else {
                                 SetValue "HKCR\CLSID\$($Drive)\ShellFolder" -Name "FolderValueFlags" -Type 4 -Value 0x30

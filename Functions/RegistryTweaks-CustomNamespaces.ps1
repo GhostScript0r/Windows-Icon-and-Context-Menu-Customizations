@@ -1,39 +1,65 @@
 . "$($PSScriptRoot)\RegistryTweaks-BasicOps.ps1"
 . "$($PSScriptRoot)\GetIcons.ps1"
 . "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
+. "$($PSScriptRoot)\CheckDefaultBrowser.ps1"
+. "$($PSScriptRoot)\RegistryTweaks-ReadStorage.ps1"
+. "$($PSScriptRoot)\RegistryTweaks-ContextMenuWebsite.ps1"
 function GenerateCustomNamespace {
     param(
         [parameter(ParameterSetName='Namespace', Mandatory=$true, Position=0)]
-        [string[]]$Namespace
+        [string[]]$Namespace,
+        [switch]$Remove
     )
+    $DefaultBrowser=(CheckDefaultBrowser)
     foreach($Name in $Namespace) {
         Write-Host "Creating CLSID entry for folder / path $($Name) if it exists."
         switch ($Name) {
             'rClone' {
                 Write-Host "Check if rClone is already installed"
                 [string]$rClonePath="$($env:Localappdata)\Programs\rclone\rclone.exe"
-                if(Test-Path $rClonePath) { # rClone installed # $lastexitcode -eq 0
-                    [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','') | Where-Object {$_ -NotIn @('Box','Google_Drive','Google_Photos')} # RClone Drive Names is stored with [] in rclone.conf
-                    for($i=0;$i -lt 9; $i++) { # This script can display max. 10 CLSID entries.
-                        [string]$RcloneCLSID="{6587a16a-ce27-424b-bc3a-8f044d36fd9$($i)}"
-                        if(($i -lt $rCloneDrives.count)) {
-                            [int]$StringLength=$rCloneDrives[$i].IndexOf('_')
-                            if($StringLength -eq -1) { # No underline in name
-                                $StringLength=$rCloneDrives[$i].length
-                            }
-                            [string[]]$DriveIcons=(GetDistroIcon $rCloneDrives[$i].SubString(0,$StringLength) -CloudDrive)
-                            [string]$DriveIcon=$DriveIcons[1]
-                            if($DriveIcon.length -eq 0) {
-                                $DriveIcon="`"$($rClonePath)`",0"
-                            }
-                            MkDirCLSID "$($RcloneCLSID)" -Name "$($rCloneDrives[$i] -replace '_',' ')" -TargetPath "$($env:Userprofile)\$($rCloneDrives[$i])" -Icon "$($DriveIcon)" -FolderType 9 -Pinned 0
+                if(-not (Test-Path $rClonePath)) {
+                    Write-Host "rClone not installed."
+                    return
+                }
+                . "$($PSScriptRoot)\Hashtables.ps1"
+                [hashtable]$DrivesWebsites=$(GetHashTables "CloudWebsites")
+                [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','') | Where-Object {$_ -NotIn @('Box','Google_Drive','Google_Photos')} # RClone Drive Names is stored with [] in rclone.conf
+                for($i=0;$i -lt 9; $i++) { # This script can display max. 10 CLSID entries.
+                    [string]$RcloneCLSID="{6587a16a-ce27-424b-bc3a-8f044d36fd9$($i)}"
+                    if(($i -lt $rCloneDrives.count)) {
+                        [int]$StringLength=$rCloneDrives[$i].LastIndexOf('_') # put lastindexof instead of indexof for Google_Drive or Google_Photos
+                        if($StringLength -eq -1) { # No underline in name
+                            $StringLength=$rCloneDrives[$i].length
                         }
-                        else {
-                            Remove-Item "Registry::HKCR\CLSID\$($RcloneCLSID)" -Force -Recurse -ea 0
-                            Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($RcloneCLSID)" -Force -Recurse -ea 0
+                        [string]$CloudDriveName=$rCloneDrives[$i].SubString(0,$StringLength)
+                        [string[]]$DriveIcons=(GetDistroIcon "$($CloudDriveName)" -CloudDrive)
+                        [string]$DriveIcon=$DriveIcons[1]
+                        if($DriveIcon.length -eq 0) {
+                            $DriveIcon="`"$($rClonePath)`",0"
                         }
+                        MkDirCLSID "$($RcloneCLSID)" -Name "$($rCloneDrives[$i] -replace '_',' ')" -TargetPath "$($env:Userprofile)\$($rCloneDrives[$i])" -Icon "$($DriveIcon)" -FolderType 9 -Pinned 0
+                        [string]$DriveSite=""
+                        foreach($DriveName in $DrivesWebsites.keys) {
+                            if($rCloneDrives[$i] -like "$($DriveName)*") {
+                                $DriveSite=$DrivesWebsites.$DriveName
+                                break
+                            }
+                        }
+                        [bool]$WebsiteValid=$($DriveSite.length -gt 0)
+                        Write-Host "Writing $($DriveSite)" -ForegroundColor Cyan
+                        [string]$WebsiteIcon="imageres.dll,-1404" #"$($env:Userprofile)\Links\$($DriveName.replace('_',' ')).ico"
+                        # if(!(Test-Path "$($WebsiteIcon)")) {
+                        #     $Websiteicon="$($DefaultBrowser[2])"
+                        # }
+                        CreateFileAssociation "CLSID\$($RcloneCLSID)" -ShellOperations "Browse" -Icon "$($WebsiteIcon)" -ShellOpDisplayName "$($DriveSite) besuchen" -Command "$($DefaultBrowser[1].replace('`"%1`"',$DriveSite))" -LegacyDisable (-Not $WebsiteValid)
+                        SetValue "HKCR\CLSID\$($RcloneCLSID)\shell\Browse" -Name "Position" -Value "Top"
+                    }
+                    else {
+                        Remove-Item "Registry::HKCR\CLSID\$($RcloneCLSID)" -Force -Recurse -ea 0
+                        Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($RcloneCLSID)" -Force -Recurse -ea 0
                     }
                 }
+                UpdateStorageInfo -NetDriveOnly
             }
             'Games' {
                 Write-Host "Check if Games path in start menu exists"
@@ -46,6 +72,23 @@ function GenerateCustomNamespace {
                         CreateKey "HKCU\SOFTWARE\$($SubKey)Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($GamesCLSID)"
                     }
                 }
+                WebsiteInContextMenu $GamesCLSID -SiteNames @("Epic Games Store")
+            }
+            'AllApps' {
+                # CLSID for the device {4234d49b-0245-4df3-b780-3893943456e1}
+                [string]$AllAppsCLSID="{0f5ecf41-20c1-49e2-9a4a-db21c3666876}"
+                if($Remove) {
+                    # Remove-Item "Registry::HKCR\CLSID\$($AllAppsCLSID)" -Force -Recurse -ea 0
+                    Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($AllAppsCLSID)" -Force -Recurse -ea 0
+                    continue
+                }
+                CreateKey "HKCR\CLSID\$($AllAppsCLSID)" -StandardValue "@werconcpl.dll,-10100"
+                CreateFileAssociation "CLSID\$($AllAppsCLSID)" -DefaultIcon "imageres.dll,-198" -ShellOperations @("open","edit","openinstore") -Command @("explorer.exe shell:::{4234d49b-0245-4df3-b780-3893943456e1}","control.exe appwiz.cpl","explorer.exe shell:AppsFolder\Microsoft.WindowsStore_8wekyb3d8bbwe!App") -TypeName "@appmgr.dll,-667" -Icon @("shell32.dll,-20","appwiz.cpl,-1500","shell32.dll,-239") -MUIVerb ("","","@shell32.dll,-5382")
+                Remove-ItemProperty -Path "Registry::HKCR\CLSID\$($AllAppsCLSID)\shell\openinstore" -Name "Position" -ea 0
+                SetValue "HKCR\CLSID\$($AllAppsCLSID)" -Name "InfoTip" -Value "@appmgr.dll,-667"
+                SetValue "HKCR\CLSID\$($AllAppsCLSID)" -Name "SortOrderIndex" -Type "4" -Value 0x42
+                SetValue "HKCR\CLSID\$($AllAppsCLSID)" -Name "DescriptionID" -Type "4" -Value 3
+                CreateKey "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($AllAppsCLSID)"
             }
             'Google Drive' {
                 [string]$GoogleDriveCLSID="{9499128F-5BF8-4F88-989C-B5FE5F058E79}"
@@ -84,6 +127,52 @@ Windows Registry Editor Version 5.00
                     Remove-Item "Registry::HKCU\Software\Classes\CLSID\{3ac72dca-9dda-4055-9cdb-695154218963}" -Force -Recurse -ErrorAction SilentlyContinue
                     Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{3ac72dca-9dda-4055-9cdb-695154218963}" -Force -ErrorAction SilentlyContinue
                 }
+            }
+            'StandardFolders' {
+                foreach($LibraryFolder in ((Get-ChildItem "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\")+(Get-ChildItem "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\")).Name) {
+                    Remove-ItemProperty -Path "Registry::$($LibraryFolder)" -Name "HideIfEnabled" -ea 0 -Force
+                    if(((Get-ItemProperty -LiteralPath "Registry::$($LibraryFolder)").'(default)') -like "CLSID_*RegFolder") {
+                        Remove-Item -Path "Registry::$($LibraryFolder)" -ea 0
+                        New-Item -Path "Registry::$($LibraryFolder)"
+                    }
+                }
+                [string[]]$LibraryFolders=@("{d3162b92-9365-467a-956b-92703aca08af}","{088e3905-0323-4b02-9826-5d99428e115f}","{3dfdf296-dbec-4fb4-81d1-6a3438bcf4de}","{f86fa3ab-70d2-4fc7-9c99-fcbf05467f3a}","{24ad3ad4-a569-4530-98e1-ab02f9417aa8}")
+                # [string[]]$LibraryDescripCLSIDs=@("{7b0db17d-9cd2-4a93-9733-46cc89022e7c}","","{2112AB0A-C86A-4ffe-A368-0DE96E47012E}","{491E922F-5643-4af4-A7EB-4E7A138D8174}","{A990AE9F-A03B-4e80-94BC-9912D7504104}")
+                # d3162b...: Dokumente; 088e39...: Downloads; 3dfdf2...: Musik; f86fa3...: Videos; 24ad3a...: Bilder
+                [string[]]$LibraryFolderName=@("@shell32.dll,-21770","@shell32.dll,-21798","@shell32.dll,-21790","@shell32.dll,-17452","@shell32.dll,-30486")
+                for($i=0;$i -lt $LibraryFolders.count;$i++) {
+                    # [string]$LibraryIcon=(Get-ItemProperty -Path "Registry::HKCR\CLSID\$($LibraryFolders[$i])\DefaultIcon" -ea 0).'(default)'
+                    # [string]$LibraryDescripCLSID=$LibraryDescripCLSIDs[$i]
+                    # [bool]$LibraryIsMSLibrary=$true
+                    # if($LibraryDescripCLSID.length -eq 0) {
+                        # [string]$LibraryDescripCLSID=(Get-ItemProperty -Path "Registry::HKCR\CLSID\$($LibraryFolders[$i])\Instance\InitPropertyBag" -ea 0).'TargetKnownFolder'
+                        # [bool]$LibraryIsMSLibrary=$false
+                    # }
+                    # [string]$LibraryName=(Get-ItemProperty -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\$($LibraryDescripCLSID)").'LocalizedName'
+                    # [string]$LibraryInfoTip=(Get-ItemProperty -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\$($LibraryDescripCLSID)").'InfoTip'
+                    # [string]$LibraryPath=(Get-ItemProperty -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\$($LibraryDescripCLSID)").'ParsingName'
+                    # $LibraryPath = $LibraryPath -replace 'shell:::','' -replace '::',''
+                    Rename-ItemProperty -Path "Registry::HKCR\CLSID\$($LibraryFolders[$i])" -Name "System.IsPinnedToNameSpaceTree_Old" -NewName "System.IsPinnedToNameSpaceTree" -ea 0
+                    [int]$Pinned = 0 # Hide 
+                    if($LibraryFolders[$i] -like "{088e3905-0323-4b02-9826-5d99428e115f}") { # Downloads
+                        $Pinned=1
+                    }
+                    MkDirCLSID $LibraryFolders[$i] -Pinned $Pinned -Name $LibraryFolderName[$i]
+                    # Since  version 22631.3672, the abovementioned function no longer works - Need to create new CLSIDs for the my computer folder
+                    # if ($LibraryIsMSLibrary) {
+                    #     MkDirCLSID "{77777777-7777-4489-a3ca-2b3aae34421$($i)}" -Icon $LibraryIcon -Name $LibraryName -Infotip $LibraryInfoTip -IsShortcut
+                    #     CreateFileAssociation "CLSID\{77777777-7777-4489-a3ca-2b3aae34421$($i)}" -ShellOperations "open" -Icon "imageres.dll,-1001" -Command "shell:::$($LibraryPath)"  -MUIVerb "@comres.dll,-1865"
+                    # }
+                    # else {
+                        # MkDirCLSID "{77777777-7777-4489-a3ca-2b3aae34421$($i)}" -Pinned $Pinned -Icon $LibraryIcon -Name $LibraryName -Infotip $LibraryInfoTip -TargetPath $LibraryDescripCLSID
+                    # }
+                }
+                WebsiteInContextMenu "{24ad3ad4-a569-4530-98e1-ab02f9417aa8}" -SiteNames @("Google_Photos","Flickr")
+                WebsiteInContextMenu "{d3162b92-9365-467a-956b-92703aca08af}" -SiteNames @("Google Docs","Adobe Document Cloud","Google Play Books")
+                WebsiteInContextMenu "{f86fa3ab-70d2-4fc7-9c99-fcbf05467f3a}" -SiteNames @("YouTube","YouTube Studio")
+                WebsiteInContextMenu "{3dfdf296-dbec-4fb4-81d1-6a3438bcf4de}" -SiteNames @("Spotify","YouTube Music")
+                SetValue -RegPath "HKCR\CLSID\{088e3905-0323-4b02-9826-5d99428e115f}" -Name "Infotip" -Value "@occache.dll,-1070" # Downloads
+                SetValue -RegPath "HKCR\CLSID\{d3162b92-9365-467a-956b-92703aca08af}" -Name "Infotip" -Value "@shell32.dll,-22914" # MyDocuents                
             }
         }
     }

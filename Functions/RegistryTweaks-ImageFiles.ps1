@@ -2,6 +2,8 @@
 . "$($PSScriptRoot)\CheckInstallPath.ps1"
 function ImageFileAssoc {
     param()
+    [bool]$NoPaintApp=$false
+    [string]$PaintAppName="mspaint.exe"
     # Find file location of paint app and copy it out
     if((Get-AppxPackage Microsoft.Paint).count -gt 0) { # App version of MS Paint installed
         [string]$PaintAppLocation="$($(Get-AppxPackage Microsoft.Paint).InstallLocation)\PaintApp\mspaint.exe"
@@ -11,10 +13,19 @@ function ImageFileAssoc {
         }
         [string]$PaintAppHKCR=(Get-ChildItem "Registry::HKCR\AppX*" | Where-Object {(Get-ItemProperty -LiteralPath "Registry::$($_.Name)\Application" -ea 0).ApplicationName -like "*Microsoft.Paint*"})[0]
     }
-    else {
+    elseif(Test-Path "C:\Windows\System32\mspaint.exe") {
         [string]$PaintAppLocation="C:\Windows\System32\mspaint.exe"
         [string]$PaintIconLocation="C:\Windows\System32\mspaint.exe"
         [string]$PaintAppHKCR="HKCR\Applications\mspaint.exe"
+    }
+    elseif(Test-Path "C:\Program Files\Pinta\pinta.exe") {
+        [string]$PaintAppLocation="C:\Program Files\Pinta\pinta.exe"
+        [string]$PaintIconLocation="C:\Program Files\Pinta\pinta.exe"
+        [string]$PaintAppHKCR="HKCR\Applications\pinta.exe"
+        $PaintAppName="`"C:\Program Files\Pinta\pinta.exe`""
+    }
+    else {
+        $NoPaintApp=$true
     }
     [string]$GIMPLocation=(CheckInstallPath "GIMP *\bin\gimp-?.*.exe")
     [bool]$HideGIMP=$false
@@ -23,7 +34,7 @@ function ImageFileAssoc {
         [bool]$HideGIMP=$true
     }
     [string]$PaintEditIcon="`"$($PaintIconLocation)`",0"
-    CreateFileAssociation @("$($PaintAppHKCR)","SystemFileAssociations\image") -ShellOperations @("edit","edit2","print","printto") -Icon @("$($PaintEditIcon)","`"$($GIMPLocation)`",0","ddores.dll,-2414","ddores.dll,-2413") -ShellOpDisplayName @("","Mit GIMP bearbeiten","","") -MUIVerb @("@mshtml.dll,-2210","","@shell32.dll,-31250","@printui.dll,-14935") -Command @("mspaint.exe `"%1`"","`"$($GIMPLocation)`" `"%1`"","","") -LegacyDisable @($false,$HideGIMP,$true,$true) 
+    CreateFileAssociation @("$($PaintAppHKCR)","SystemFileAssociations\image") -ShellOperations @("edit","edit2","print","printto") -Icon @("$($PaintEditIcon)","`"$($GIMPLocation)`",0","ddores.dll,-2414","ddores.dll,-2413") -ShellOpDisplayName @("","Mit GIMP bearbeiten","","") -MUIVerb @("@mshtml.dll,-2210","","@shell32.dll,-31250","@printui.dll,-14935") -Command @("$($PaintAppName) `"%1`"","`"$($GIMPLocation)`" `"%1`"","","") -LegacyDisable @($NoPaintApp,$HideGIMP,$true,$true) 
     [string[]]$ImageFileExts=@("bmp","jpg","jpeg","png","016","256","ico","cur","ani","dds","tif","tiff","rri")
     SetValue "HKCR\.256" -Name "PerceivedType" -Value "image"
     foreach($ImageExt in $ImageFileExts) {

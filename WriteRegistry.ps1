@@ -7,65 +7,33 @@
 # Write-Host ((Get-Variable -scope private).Name + @(" ") + (Get-Variable -scope local).Name)
 Write-Host "This script is inteneded to write in the usual registry stuff after Windows OOBE or in-place upgrade" -BackgroundColor White -ForegroundColor Blue
 # Call functions
-$PSFunctions=(Get-ChildItem "$($PSScriptRoot)\Functions\*.ps1")
-foreach($Function in $PSFunctions) {
-    . "$($Function.FullName)"
-}
 # Check Admin Privilege
+. "$($PSScriptRoot)\Functions\RunAsAdmin.ps1"
+foreach($Argum in (GetThisScriptVariable $(Get-Variable))) {
+    if((Get-Variable "$($Argum)").value -eq $true) {
+        $ArgumentToPass = $ArgumentToPass + @($Argum)    
+    }
+}
 foreach($Argum in (GetThisScriptVariable $(Get-Variable))) {
     if((Get-Variable "$($Argum)").value -eq $true) {
         $ArgumentToPass = $ArgumentToPass + @($Argum)    
     }
 }
 RunAsAdmin "$($PSCommandPath)" -Arguments $ArgumentToPass
+$PSFunctions=(Get-ChildItem "$($PSScriptRoot)\Functions\*.ps1")
+foreach($Function in $PSFunctions) {
+    . "$($Function.FullName)"
+}
 # Refresh Box Drive if updated
 BoxDriveRefresh
 if($StorageRefreshOnly) {
     UpdateStorageInfo
-    exit
+    exit # The 5-minute storage refresh script ends at the place above.
 }
-# The 5-minute storage refresh script ends at the place above.
 # Here starts the script that will only be run manually or when a system version update is done.
-# > Find file location of Windows Terminal app and copy the profile icons out
-[bool]$WTInstalled=([System.Environment]::OSVersion.Version.Build -ge 19041) -and ((Get-AppxPackage  Microsoft.WindowsTerminal).InstallLocation -gt 0)
-if($WTInstalled) {
-    [string]$WTLocation="$($(Get-AppxPackage Microsoft.WindowsTerminal).InstallLocation)"
-    [string]$PowerShellIconPNG="$($env:LocalAppdata)\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\ProfileIcons\{61c54bbd-c2c6-5271-96e7-009a87ff44bf}.scale-200.png"
-    [string]$TerminalIconICO="$($env:LocalAppdata)\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe\terminal_contrast-white.ico"
-    if(!(Test-Path "$($PowerShellIconPNG)")) {
-        Copy-Item -Path "$($WTLocation)\ProfileIcons" -Destination "$($env:LocalAppdata)\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe" -Recurse
-    }
-    if(!(Test-Path "$($TerminalIconICO)")) {
-        Copy-Item -Path "$($WTLocation)\Images\terminal_contrast-white.ico" -Destination "$($env:LocalAppdata)\Packages\Microsoft.WindowsTerminal_8wekyb3d8bbwe"
-    }
-}
-# Find location of WSL
-[bool]$WSLEnabled=((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem-Linux").State -eq "Enabled")
-if($WSLEnabled) {
-    [string]$WSLLocation="C:\Program Files\WSL\wsl.exe"
-    [string]$WSLLocationUWP="$((Get-AppxPackage MicrosoftCorporationII.WindowsSubsystemForLinux).InstallLocation)\wsl.exe"
-    if (-NOT (Test-Path "$($WSLLocation)")) {
-        $WSLLocation=$WSLLocationUWP
-    }
-    if (-NOT (Test-Path "$($WSLLocationUWP)")) {
-        $WSLLocation="C:\Windows\System32\wsl.exe" 
-    }
-    [string]$WSLIconPNG="$($env:Localappdata)\Packages\MicrosoftCorporationII.WindowsSubsystemForLinux_8wekyb3d8bbwe\Square44x44Logo.altform-lightunplated_targetsize-48.png"
-    if(!(Test-Path "$($WSLIconPNG)") -and ($WSLLocation -notlike "C:\Windows\System32\wsl.exe")) {
-        Copy-Item -Path "$(Split-Path $WSLLocationUWP)\Images\$(Split-Path $WSLIconPNG -Leaf)" -Destination "$(Split-Path $WSLIconPNG)"
-    }
-}
-WSARegistry # Add WSA to registry
-GenerateCustomNamespace @("Dropbox","Google Drive","rClone","Games") #Generate namespaces for cloud drives and custom folders
+GenerateCustomNamespace @("Dropbox","Google Drive","rClone","Games","AllApps") #Generate namespaces for cloud drives and custom folders
 SetValue "HKLM\SYSTEM\ControlSet001\Control\TimeZoneInformation" -Name "RealTimeIsUniversal" -Type 4 -Value 1 # Use BIOS time as UTC
-# NVidia Shadow Play - hide mouse button
-$nVidiaShadowPlayReg=@'
-Windows Registry Editor Version 5.00
-
-[HKEY_CURRENT_USER\Software\NVIDIA Corporation\Global\ShadowPlay\NVSPCAPS]
-"{079461D0-727E-4C86-A84A-CBF9A0D2E5EE}"=hex:01,00,00,00
-'@
-ImportReg $nVidiaShadowPlayReg
+HideMouseShadowPlay # NVidia Shadow Play - hide mouse button
 # ------- Check default browser ---------
 [string[]]$DefaultBrowser=(CheckDefaultBrowser)
 [string]$BrowserPath=$DefaultBrowser[0]
@@ -155,6 +123,8 @@ foreach($LockedKey in $AllLockedKeys) {
         TakeRegOwnership "$($LockedKey)" | Out-Null
     }
 }
+WriteWSLRegistry # Add WSL stuff to registry
+WSARegistry # Add WSA to registry
 # ————————FILE ASSOCIATIONS—————————
 # --------Any file---------
 try {
@@ -171,64 +141,13 @@ if($JREInstalled) {
 # --------- zip relevant, compressed archives ---------
 ZipFileAssoc
 # ------- PDF Document -------
-[string[]]$BrowserPDFs=@("MSEdgePDF")
-CreateFileAssociation $BrowserPDFs -ShellOperations "open" -Icon "ieframe.dll,-31065" -MUIVerb "@ieframe.dll,-21819"
-if($BrowserPath -like "*chrome.exe*") {
-    $BrowserPDFs = $BrowserPDFs + @("ChromePDF")
-    CreateFileAssociation "ChromePDF" -FileAssoList ".pdf" -DefaultIcon "$($env:Userprofile)\Links\Adobe Acrobat.ico" -ShellOperations @("open") -MUIVerb @("@SearchFolder.dll,-10496") -Icon @("`"$($BrowserPath)`",0") -Command @("`"$($BrowserPath)`" `"%1`"") # If Adobe Acrobat is not working: Add  before %1
-    CreateKey "HKCR\.pdf" -StandardValue "ChromePDF"
-}
-# SumatraPDF related
-[string]$SumatraPDFLoc=$(CheckInstallPath "SumatraPDF\sumatrapdf.exe")
-[bool]$SumatraPDFInstalled=$(Test-Path "$($SumatraPDFLoc)")
-if($SumatraPDFInstalled) {
-    [string[]]$SumatraPDFHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {$_ -like "SumatraPDF.*"})
-    $SumatraPDFHKCR = $SumatraPDFHKCR + "Applications\SumatraPDF.exe"
-    foreach($Key in $SumatraPDFHKCR) { # $SumatraPDFHKCR do not contain HKCR\ prefix
-        if($Key -like "*epub*") {
-            [int]$IconNr=3
-        }
-        elseif($Key -like "*cb?") {
-            [int]$IconNr=4
-        }
-        else {
-            [int]$IconNr=2
-        }
-        [string]$SumatraICO="`"$($SumatraPDFLoc)`",-$($IconNr)"
-        CreateFileAssociation "$($Key)" -DefaultIcon "$($SumatraICO)" -ShellOperations "open" -MUIVerb "@appmgr.dll,-652" -Icon "`"$($SumatraPDFLoc)`",0"
-        if($Key -like "*chm") { # CHM Help File
-            CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-99" -ShellOperations @("open","open2") -MUIVerb @("@appmgr.dll,-652","@srh.dll,-1359") -Icon ("","C:\Windows\hh.exe") -Command @("","C:\Windows\hh.exe `"$1`"")
-        }
-        if(Test-Path "Registry::HKCR\$($Key)\shell\print") {
-            CreateFileAssociation "$($Key)" -ShellOperations "print" -LegacyDisable 1 -Icon "ddores.dll,-2414"
-        }
-        if(Test-Path "Registry::HKCR\$($Key)\shell\printto") {
-            CreateFileAssociation "$($Key)" -ShellOperations "printto" -LegacyDisable 1 -Icon "ddores.dll,-2413"
-            [string]$KeyWithPrint="$($Key)"
-        }
-    }
-    CreateFileAssociation $BrowserPDFs -ShellOperations @("open2") -Icon @("`"$($SumatraPDFLoc)`",0") -ShellOpDisplayName @("Mit SumatraPDF lesen") -Command @("`"$($SumatraPDFLoc)`" `"%1`"") #"ddores.dll,-2414"
-    Copy-Item -Path "Registry::HKCR\$($Key)\shell\open\command" -Destination "Registry::HKCR\MSEdgePDF\shell\open2" -Force
-    foreach($PrintAction in @("print","printto")) {
-        Copy-Item -Path "Registry::HKCR\$($KeyWithPrint)\shell\$($PrintAction)" -Destination "Registry::HKCR\MSEdgePDF\shell" -Force -Recurse -ea 0
-    }
-}
+PDFFileAsso
 # ________________ VS Code related __________________
 # Check if VS Code is installed systemwide or for current user only
-[bool]$VSCodeInstalled=$false
-[string[]]$VSCodeVersion=@("Microsoft VS Code\Code.exe","Microsoft VS Code Insiders\Code - Insiders.exe")
-for ($i=0;$i -lt $VScodeVersion.count;$i++) {
-    [string]$VSCodeLocation=(CheckInstallPath "$($VSCodeVersion[$i])")
-    if($VSCodeLocation.length -gt 0) {
-        $VSCodeInstalled=$true
-        [string]$VSCodeIconsLoc="$(Split-Path "$($VSCodeLocation)" -Parent)\resources\app\resources\win32"
-        [string]$VSCodeVerHKCR="VSCode"
-        if($VSCodeLocation -like "*Insiders*") {
-            [string]$VSCodeVerHKCR="VSCodeInsiders"
-        }
-        break
-    }
-}
+[string[]]$VSCodeInfo=$(FindVSCodeInstallPath)
+[string]$VSCodeLocation=$Vscodeinfo[0]
+[string]$VSCodeIconsLoc=$VSCodeInfo[1]
+[string]$VSCodeAppHKCR=$VSCodeInfo[2]
 # ------- Python script -------
 # > Find file location of Python
 [string]$PythonEXELocation=(where.exe python.exe)
@@ -285,42 +204,13 @@ CreateFileAssociation "Folder" -ShellOperations @("open","opennewwindow","openne
 # ---------Hard drives--------
 CreateFileAssociation "Drive" -ShellOperations @("manage-bde","encrypt-bde","encrypt-bde-elev","pintohome") -Icon @("shell32.dll,-194","shell32.dll,-194","shell32.dll,-194","shell32.dll,-322")
 # --------Directories--------
-# Change "Linux (WSL)" Entry icon and location
-if($WSLEnabled) {
-    [string]$DistroName=(GetDefaultWSL)
-    if(($DistroName.length -eq 0)) {
-        MkDirCLSID "{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -RemoveCLSID
-    }
-    else {
-        [string[]]$WSLIconDistro=(GetDistroIcon "$($DistroName)")
-        if($WSLIconDistro.length -eq 0) {
-            $WSLIconDistro=@($WSLIconPNG,$WSLLocation)
-        }
-        if($WTInstalled) {
-            [string]$WSLMenuCommand="wt.exe -p `"$($DistroName)`" -d `"%V`""
-        }
-        else {
-            [string]$WSLMenuCommand="wsl.exe --cd `"%V`""
-        }
-        [int]$WSLVer=(GetDefaultWSL -GetWSLVer)
-        if($WSLVer -eq 2) {
-            [string]$WSLDirPath="\\wsl.localhost\$($DistroName.Replace(' ','-'))"
-        }
-        elseif($WSLVer -eq 1) {
-            [string]$WSLDirPath="$(GetDefaultWSL -GetWSLPath)\rootfs"
-        }
-        MkDirCLSID "{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -FolderType 6 -Name "$($DistroName)" -Pinned 0 -TargetPath "$($WSLDirPath)" -Icon "$($WSLIconDistro[1])"
-        CreateFileAssociation "CLSID\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ShellOperations "open2" -Icon "`"$($WSLLocation)`",0" -Command "$($WSLMenuCommand)" -MUIVerb "@wsl.exe,-2" 
-        # Remove "Linux" Entry from desktop
-        Remove-Item -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC6}" -ea 0
-    }
-}
 [string[]]$PowerShellDef=@("","powershell.exe,0") # [0]: Display Name; [1]: Icon file
 # Hide "Open in terminal" entry to unify how the menu looks.
 SetValue "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked" `
     -Name "{9F156763-7844-4DC4-B2B1-901F640F5155}" -EmptyValue $true # Terminal
 SetValue "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked" `
     -Name "{02DB545A-3E20-46DE-83A5-1329B1E88B6B}" -EmptyValue $true # Terminal preview
+[bool]$WTInstalled=(CheckTerminal)
 if($WTInstalled) {
     [string]$CmdMenuCommand="wt.exe -d `"%V `" -p `"Eingabeaufforderung`""
     [string]$PwsMenuCommand="wt.exe -d `"%V `" -p `"PowerShell`""
@@ -331,26 +221,21 @@ else {
     [string]$PwsMenuCommand="powershell.exe -NoExit -Command Set-Location -LiteralPath `"%V`""
     [string]$PwsUACCommand="PowerShell.exe -windowstyle hidden -Command `"Start-Process powershell.exe -ArgumentList '-noexit -command Set-Location -LiteralPath `"`"%V `"`"`"' -Verb RunAs`""
 }
-[string]$WSLIcon="`"$($WSLLocation)`",0"
-if([System.Environment]::OSVersion.Version.Build -lt 18000) { # WSL.exe gets an icon since WSL2 (1903)
-    GetDistroIcon -Iconforlnk
-    $WSLIcon="$($env:USERPROFILE)\Links\Tux.ico"
-}
 CreateFileAssociation @("Directory\Background","Directory","LibraryFolder\background") `
-    -ShellOperations @("cmd","VSCode","VSCodeWithAdmin","git_shell","git_gui","Powershell","PowershellWithAdmin","WSL") `
-    -ShellOpDisplayName @("","Hier VS Code starten","Hier VS Code starten (Administrator)","","","","PowerShell (Admin) hier starten","") `
+    -ShellOperations @("cmd","VSCode","VSCodeWithAdmin","git_shell","git_gui","Powershell","PowershellWithAdmin") `
+    -ShellOpDisplayName @("","Hier VS Code starten","Hier VS Code starten (Administrator)","","","","PowerShell (Admin) hier starten") `
     -Icon @("cmd.exe,0","`"$($VSCodeLocation)`",0","`"$($VSCodeLocation)`",0","`"C:\Program Files\Git\git-bash.exe`",0",`
-        "`"C:\Program Files\Git\git-bash.exe`",0","$($PowerShellDef[1])","$($PowerShellDef[1])","$($WSLIcon)") `
-    -Extended @(0,0,0,1,1,0,0,0) `
-    -LegacyDisable @(1,0,0,0,0,0,0,!($WSLEnabled)) `
-    -HasLUAShield @(0,0,1,0,0,0,1,0) `
-    -MUIVerb @("","","","","","@shell32.dll,-8508","@twinui.pcshell.dll,-10929","@wsl.exe,-2") `
+        "`"C:\Program Files\Git\git-bash.exe`",0","$($PowerShellDef[1])","$($PowerShellDef[1])") `
+    -Extended @(0,0,0,1,1,0,0) `
+    -LegacyDisable @(1,0,0,0,0,0,0) `
+    -HasLUAShield @(0,0,1,0,0,0,1) `
+    -MUIVerb @("","","","","","@shell32.dll,-8508","@twinui.pcshell.dll,-10929") `
     -Command @("$($CmdMenuCommand)","`"$($VSCodeLocation)`" `"%v `"",`
         "PowerShell -windowstyle hidden -Command `"Start-Process '$($VSCodeLocation)' -ArgumentList '-d `"`"%V`"`"`"' -Verb RunAs`"",`
         "wt.exe new-tab --title Git-Bash --tabColor #300a16 --suppressApplicationTitle `"C:\Program Files\Git\bin\bash.exe`"",`
         "",` # git-gui no need to define
         "$($PwsMenuCommand)",`
-        "$($PwsUACCommand)","$($WSLMenuCommand)")
+        "$($PwsUACCommand)") # No WSL entry because WSL entry was spinned off into another PS1 script
 Remove-Item -Path "Registry::HKCR\Directory\Background\DefaultIcon" -ea 0 # Not needed
 # Admin commands don't work in Library Folders, so disable them in Libraries
 CreateFileAssociation "LibraryFolder\background" -ShellOperations @("VSCodeWithAdmin","PowerShellWithAdmin") -LegacyDisable @(1,1) 
@@ -407,12 +292,10 @@ if(Test-Path "C:\Windows\System32\wscript.exe") { # If VBS as a legacy component
     -Extended @(0,0,1,0) -LegacyDisable @(0,0,1,0)
 }
 # --------Registry file--------
-CreateFileAssociation "regfile" -ShellOperations @("open","edit","print") `
-    -Icon @("regedit.exe,0","`"$($VSCodeLocation)`",0","DDORes.dll,-2413") `
-    -Extended @(0,0,1) -ShellDefault "open"`
-    -command @("","`"$($VSCodeLocation)`" `"%1`"","")
+CreateFileAssociation "regfile" -ShellOperations @("open","edit","print") -Icon @("regedit.exe,0","`"$($VSCodeLocation)`",0","DDORes.dll,-2413") -Extended @(0,0,1) -command @("","`"$($VSCodeLocation)`" `"%1`"","")
+PowerToysFileAsso -RegFile
 # -------XML Document-------
-Remove-ItemProperty -Path "Registry::HKCR\.xml" -Name "PreceivedType" -ea 0
+Remove-ItemProperty -Path "Registry::HKCR\.xml" -Name "PreceivedType" -ea 0 -Force
 foreach($ML_Ext in @("xml","htm","html")) {    
     Remove-ItemProperty -Path "Registry::HKCR\.$($ML_Ext)\OpenWithProgids" -Name "MSEdgeHTM" -ea 0 
 }
@@ -438,7 +321,7 @@ if([System.Environment]::OSVersion.Version.Build -ge 22000) {
 else {
     [string]$HTMLIcon="ieframe.dll,-110"
 }
-CreateFileAssociation @("htmlfile","$($VSCodeVerHKCR).htm","$($VSCodeVerHKCR).html","MSEdgeHTM","Applications\MSEdge.exe") -DefaultIcon "ieframe.dll,-210" -ShellOperations @("open","open2","edit","print","printto") -Icon @("$($BrowserIcon)","`"$($SumatraPDFLoc)`",0","`"$($VSCodeLocation)`",0","DDORes.dll,-2414","DDORes.dll,-2413") -Command @("$($BrowserOpenAction)","`"$($SumatraPDFLoc)`" `"%1`"","`"$($VSCodeLocation)`" `"%1`"","","") -MUIVerb @("$($OpenHTMLVerb)","","","","") -LegacyDisable @(0,0,0,1,1) -ShellOpDisplayName @("","Mit SumatraPDF lesen","","","")
+CreateFileAssociation @("htmlfile","$($VSCodeVerHKCR).htm","$($VSCodeVerHKCR).html","MSEdgeHTM","Applications\MSEdge.exe") -DefaultIcon "ieframe.dll,-210" -ShellOperations @("open","edit","print","printto") -Icon @("$($BrowserIcon)","`"$($VSCodeLocation)`",0","DDORes.dll,-2414","DDORes.dll,-2413") -Command @("$($BrowserOpenAction)","`"$($VSCodeLocation)`" `"%1`"","","") -MUIVerb @("$($OpenHTMLVerb)","","","") -LegacyDisable @(0,0,1,1)
 MakeReadOnly "HKCR\MSEdgeHTM\DefaultIcon" -InclAdmin
 MakeReadOnly "HKCR\htmlfile\DefaultIcon" -InclAdmin
 # ------- URL Internet Shortcut -------
@@ -505,7 +388,7 @@ SetValue -RegPath "HKCR\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}\shell\Manag
 Remove-ItemProperty -Path "Registry::HKCR\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}\shell\Manage" -Name "HasLUAShield" -ea 0
 # ------ CONTROL PANEL ------
 # Change control panel icons
-CreateFileAssociation @("CLSID\{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}","CLSID\{26EE0668-A00A-44D7-9371-BEB064C98683}") -DefaultIcon "Control.exe,0" -Icon "Control.exe,0" -ShellOperations "open" -MUIVerb "@shell32.dll,-10018" -command "control.exe"
+CreateFileAssociation @("CLSID\{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}","CLSID\{26EE0668-A00A-44D7-9371-BEB064C98683}") -DefaultIcon "Control.exe,0" -Icon @("Control.exe,0","shell32.dll,-16826") -ShellOperations @("open","open2") -MUIVerb @("@shell32.dll,-10018","@shell32.dll,-31312") -command @("control.exe","explorer.exe shell:AppsFolder\windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel")
 SetValue -RegPath "HKCR\CLSID\{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}" -name "DescriptionID" -Type "dword" -Value 0x16
 CreateKey "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}"
 CreateFileAssociation "CLSID\{60632754-c523-4b62-b45c-4172da012619}" -DefaultIcon "imageres.dll,-79" # Control panel - user accounts
@@ -547,46 +430,8 @@ if($RemoveCommonStartFolder) {
 # Show "Details" tile in Windows Explorer
 # SetValue "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Modules\GlobalSettings\DetailsContainer" -Name "DetailsContainer" -Type 3 -Value "01,00,00,00,02,00,00,00" # Type 3 means binary
 # Show library folders in Explorer
-foreach($LibraryFolder in ((Get-ChildItem "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\")+(Get-ChildItem "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\")).Name) {
-    Remove-ItemProperty -Path "Registry::$($LibraryFolder)" -Name "HideIfEnabled" -ea 0
-    if(((Get-ItemProperty -LiteralPath "Registry::$($LibraryFolder)").'(default)') -like "CLSID_*RegFolder") {
-        Remove-Item -Path "Registry::$($LibraryFolder)" -ea 0
-        New-Item -Path "Registry::$($LibraryFolder)"
-    }
-}
-[string[]]$LibraryFolders=@("{d3162b92-9365-467a-956b-92703aca08af}","{088e3905-0323-4b02-9826-5d99428e115f}","{3dfdf296-dbec-4fb4-81d1-6a3438bcf4de}","{f86fa3ab-70d2-4fc7-9c99-fcbf05467f3a}","{24ad3ad4-a569-4530-98e1-ab02f9417aa8}")
-# [string[]]$LibraryDescripCLSIDs=@("{7b0db17d-9cd2-4a93-9733-46cc89022e7c}","","{2112AB0A-C86A-4ffe-A368-0DE96E47012E}","{491E922F-5643-4af4-A7EB-4E7A138D8174}","{A990AE9F-A03B-4e80-94BC-9912D7504104}")
-# d3162b...: Dokumente; 088e39...: Downloads; 3dfdf2...: Musik; f86fa3...: Videos; 24ad3a...: Bilder
-[string[]]$LibraryFolderName=@("@shell32.dll,-21770","@shell32.dll,-21798","@shell32.dll,-21790","@shell32.dll,-17452","@shell32.dll,-30486")
-for($i=0;$i -lt $LibraryFolders.count;$i++) {
-    # [string]$LibraryIcon=(Get-ItemProperty -Path "Registry::HKCR\CLSID\$($LibraryFolders[$i])\DefaultIcon" -ea 0).'(default)'
-    # [string]$LibraryDescripCLSID=$LibraryDescripCLSIDs[$i]
-    # [bool]$LibraryIsMSLibrary=$true
-    # if($LibraryDescripCLSID.length -eq 0) {
-        # [string]$LibraryDescripCLSID=(Get-ItemProperty -Path "Registry::HKCR\CLSID\$($LibraryFolders[$i])\Instance\InitPropertyBag" -ea 0).'TargetKnownFolder'
-        # [bool]$LibraryIsMSLibrary=$false
-    # }
-    # [string]$LibraryName=(Get-ItemProperty -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\$($LibraryDescripCLSID)").'LocalizedName'
-    # [string]$LibraryInfoTip=(Get-ItemProperty -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\$($LibraryDescripCLSID)").'InfoTip'
-    # [string]$LibraryPath=(Get-ItemProperty -Path "Registry::HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\FolderDescriptions\$($LibraryDescripCLSID)").'ParsingName'
-    # $LibraryPath = $LibraryPath -replace 'shell:::','' -replace '::',''
-    Rename-ItemProperty -Path "Registry::HKCR\CLSID\$($LibraryFolders[$i])" -Name "System.IsPinnedToNameSpaceTree_Old" -NewName "System.IsPinnedToNameSpaceTree" -ea 0
-    [int]$Pinned = 0 # Hide 
-    if($LibraryFolders[$i] -like "{088e3905-0323-4b02-9826-5d99428e115f}") { # Downloads
-        $Pinned=1
-    }
-    MkDirCLSID $LibraryFolders[$i] -Pinned $Pinned -Name $LibraryFolderName[$i]
-    # Since  version 22631.3672, the abovementioned function no longer works - Need to create new CLSIDs for the my computer folder
-    # if ($LibraryIsMSLibrary) {
-    #     MkDirCLSID "{77777777-7777-4489-a3ca-2b3aae34421$($i)}" -Icon $LibraryIcon -Name $LibraryName -Infotip $LibraryInfoTip -IsShortcut
-    #     CreateFileAssociation "CLSID\{77777777-7777-4489-a3ca-2b3aae34421$($i)}" -ShellOperations "open" -Icon "imageres.dll,-1001" -Command "shell:::$($LibraryPath)"  -MUIVerb "@comres.dll,-1865"
-    # }
-    # else {
-        # MkDirCLSID "{77777777-7777-4489-a3ca-2b3aae34421$($i)}" -Pinned $Pinned -Icon $LibraryIcon -Name $LibraryName -Infotip $LibraryInfoTip -TargetPath $LibraryDescripCLSID
-    # }
-}
-SetValue -RegPath "HKCR\CLSID\{088e3905-0323-4b02-9826-5d99428e115f}" -Name "Infotip" -Value "@occache.dll,-1070" # Downloads
-SetValue -RegPath "HKCR\CLSID\{d3162b92-9365-467a-956b-92703aca08af}" -Name "Infotip" -Value "@shell32.dll,-22914" # MyDocuents
+GenerateCustomNamespace "StandardFolders"
+# __________________ Library ____________________________
 # Context menu icon - revert to standard library
 CreateFileAssociation "CLSID\{031E4825-7B94-4dc3-B131-E946B44C8DD5}" -ShellOperations "restorelibraries" -Icon "shell32.dll,-16803" -Extended 1
 Remove-ItemPeoperty -Path "Registry::HKCR\CLSID\{031E4825-7B94-4dc3-B131-E946B44C8DD5}\shell\restorelibraries" -Name "SeparatorBefore" -ea 0
@@ -745,7 +590,6 @@ if([System.Environment]::OSVersion.Version.Build -lt 20000) {
     SetValue "HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced" -Name "ShowSecondsInSystemClock" -Type "4" -Value 1
 }
 DAToolSetFileAssoc
-UpdateStorageInfo
 # Use dark mode
 SetValue "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "SystemUsesLightTheme" -Type "4" -Value 0
 SetValue "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "AppUsesLightTheme" -Type "4" -Value 0
