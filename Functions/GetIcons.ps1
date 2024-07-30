@@ -7,7 +7,9 @@ function GetDistroIcon {
         [string]$DistroName="",
         [switch]$CloudDrive,
         [switch]$IconForLnk,
-        [switch]$Force
+        [switch]$Force,
+        [switch]$CopyAppIconPNG,
+        [string]$PNGSubLoc=""
     )
     # Creating Distro Icon (PNG to ICO) requires ImageMagick
     if(-not ((where.exe magick.exe) -like "*magick.exe")) {
@@ -15,6 +17,34 @@ function GetDistroIcon {
         return ""
     }
     [string]$AppDataDir = "$($env:USERPROFILE)\Links"
+    if($CopyAppIconPNG) {
+        if($PNGSubLoc.length -eq 0) {
+            Write-Error "File location is mandatory."
+            return ""
+        }
+        [string]$PNGMainLoc=""
+        if(($DistroName -like "*\*") -and (Test-Path "$($DistroName)")) 
+        { # DistroName is an AppxPackage
+            $PNGMainLoc=$DistroName
+        }
+        else {
+            $App=(Get-AppxPackage $DistroName)
+            if($App.count -gt 0) {
+                $PNGMainLoc=$App[0].InstallLocation
+            }
+        }
+        if($PNGMainLoc.length -eq 0) {
+            Write-Host "The app or path $($PNGMainLoc) does not exist!" -ForegroundColor Red -BackgroundColor Black
+            return ""
+        }
+        [string]$TargetFile="$($env:USERPROFILE)\Links\$($DistroName)_$([io.path]::GetFileNameWithoutExtension($PNGSubLoc)).ico"
+        if(-not (Test-Path "$($TargetFile)")) {
+            [string]$PNGSource=($PNGMainLoc+"\"+$PNGSubLoc).replace("\\","\")
+            Copy-Item -Path "$($PNGSource)" -Destination "$($TargetFile.replace('.ico','.png'))" -Force
+            magick.exe -background transparent "$($TargetFile.replace('.ico','.png'))" -define icon:auto-resize=16,24,32,48,64,72,96,128,256 "$($TargetFile)"
+        }
+        return $TargetFile
+    }
     if($IconForLnk) {
         $DistroLogoURLs=(GetHashTables "IconForLnk")
         if([System.Environment]::OSVersion.Version.Build -lt 18200) {

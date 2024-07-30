@@ -9,7 +9,7 @@ if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem
 	if(($CurrentBuildVer.Build -ge 19041) -and (-not (Test-Path "C:\Program Files\WSL\wsl.exe"))) {
 		GitHubReleaseDownload "microsoft/WSL" -OtherStringsInFileName ".x64.msi" -InstallationName "Windows Subsystem for Linux"
 	} # Older releases does not support WSL2 kernel on GitHub, needs to use update from Microsoft Update Catalog instead
-	elseif($CurrentBuildVer.Build -ge 18000) { # WSL2 support starts from Windows 10 1903. Older versions like 2019 LTSC (1809) does not support WSL2 and can only run WSL1
+	elseif(($CurrentBuildVer.Build -ge 18000) -and ($CurrentBuildVer.Build -lt 19041)) { # WSL2 support starts from Windows 10 1903. Older versions like 2019 LTSC (1809) does not support WSL2 and can only run WSL1
 		[bool]$WSLKernelInstalled=(Get-ChildItem "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall" | Where-Object {(Get-ItemProperty "Registry::$($_.Name)").DisplayName -like "Windows Subsystem for Linux Update" }).count
 		if(-not $WSLKernelInstalled) {
 			Invoke-WebRequest -Uri "https://catalog.s.download.windowsupdate.com/d/msdownload/update/software/updt/2022/03/wsl_update_x64_8b248da7042adb19e7c5100712ecb5e509b3ab5f.cab" -OutFile "$($env:TEMP)\WSL.cab" 
@@ -37,6 +37,7 @@ if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem
 # msiexec.exe /i "$($env:TEMP)\GitHub.msi" /quiet 
 # __________________________
 # Install programs from GitHub
+GitHubReleaseDownload "jonaskohl/CapsLockIndicator" -Arch "CLI" -Extension ".exe" -DownloadOnly
 GitHubReleaseDownload "benbuck/rbtray" -OtherStringsInFileName ".zip" -IsZIP
 GitHubReleaseDownload "NationalSecurityAgency/ghidra" -Arch "PUBLIC" -OtherStringsInFileName ".zip" -IsZIP
 GitHubReleaseDownload "rclone/rclone" -Arch "amd64" -OtherStringsInFileName "windows" -IsZIP
@@ -67,6 +68,7 @@ for($i=0;$i -lt $NirSoftUtilities.count;$i++) {
 if(-not (Test-Path "$($CPDF)")) {
 	Invoke-WebRequest "https://github.com/coherentgraphics/cpdf-binaries/blob/master/Windows64bit/cpdf.exe" -Outfile "$($CPDF)"
 }
+exit
 # ____________________________
 # Install programs with WinGet
 # Check in Winget is installed

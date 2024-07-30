@@ -59,6 +59,7 @@ function ZipFileAssoc {
         } 
     }
     elseif($ZipAppInstalled -like "7-Zip") {
-        CreateFileAssociation @("CompressedArchive","Applications\7zFM.exe") -FileAssoList $ZipFileAssoExt -DefaultIcon "imageres.dll,-174" -ShellOperations "open"     -ShellOpDisplayName "Mit 7-Zip browsen" -Icon "`"C:\Program Files\7-Zip\7zFM.exe`",0" -Command "`"C:\Program Files\7-Zip\7zFM.exe`" `"%1`""
+        CreateFileAssociation @("CompressedArchive","Applications\7zFM.exe","dllfile") -FileAssoList $ZipFileAssoExt -DefaultIcon "imageres.dll,-174" -ShellOperations "open" -ShellOpDisplayName "Mit 7-Zip browsen" -Icon "`"C:\Program Files\7-Zip\7zFM.exe`",0" -Command "`"C:\Program Files\7-Zip\7zFM.exe`" `"%1`""
+        CreateFileAssociation "dllfile" -DefaultIcon "imageres.dll,-67"
     }
 }

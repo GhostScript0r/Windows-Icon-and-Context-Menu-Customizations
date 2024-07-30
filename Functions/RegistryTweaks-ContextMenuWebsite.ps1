@@ -8,7 +8,6 @@ function WebsiteInContextMenu {
     . "$($PSScriptRoot)\GetIcons.ps1"
     . "$($PSScriptRoot)\HashTables.ps1"
     . "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
-    . "$($PSScriptRoot)\CheckDefaultBrowser.ps1"
     [string[]]$SiteLinks=@("")*$SiteNames.count
     [string[]]$SiteIcons=@("")*$SiteNames.count
     [string[]]$SiteCtxtMenuEntries=@("")*$SiteNames.count
@@ -21,7 +20,10 @@ function WebsiteInContextMenu {
             Write-Host "No weblink for $($SiteNames[$ii])"
             continue
         }
-        $SiteCommands[$ii]="$($DefaultBrowser[1].replace('`"%1`"',$SiteLinks[$ii]))"
+        if($SiteLinks[$ii] -notlike "https://*") {
+            $SiteLinks[$ii]="https://*"+$sitelinks[$ii]
+        }
+        $SiteCommands[$ii]="rundll32 url.dll,FileProtocolHandler $($Sitelinks[$ii])"
         $SiteIcons[$ii]="$($env:USERPROFILE)\Links\$($SiteNames[$ii]).ico"
         if(!(Test-Path "$($SiteIcons[$ii])")) {
             if($SiteNames[$ii] -like "Adobe *") {
@@ -34,7 +36,7 @@ function WebsiteInContextMenu {
                 $SiteIcons[$ii]="$($env:USERPROFILE)\Links\YouTube.ico"
             }
             else {
-                $SiteIcons[$ii]="$($(CheckDefaultBrowser)[2])"
+                $SiteIcons[$ii]="ieframe.dll,-190"
             }
         }
         $SiteCtxtMenuEntries[$ii]="$($SiteNames[$ii].replace('_',' '))"

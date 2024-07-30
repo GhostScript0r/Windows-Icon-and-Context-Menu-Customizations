@@ -152,7 +152,7 @@ PDFFileAsso
 # > Find file location of Python
 [string]$PythonEXELocation=(where.exe python.exe)
 if($lastexitcode -eq 1) { 
-    Write-Host "Python not installed"
+    Write-Host "Python not installed."
     Remove-Item "Registry::HKCR\py_auto_file" -Force -Recurse -ea 0
 }
 else {
@@ -160,12 +160,14 @@ else {
         $PythonApp=(Get-AppxPackage PythonSoftwareFoundation.Python*)[0]
         [string]$PythonInstallLoc="$($PythonApp.InstallLocation)\python.exe"
         [string]$PythonScriptsLoc=(Get-Item "$($env:LocalAppdata)\Packages\$($PythonApp.PackageFamilyName)\LocalCache\local-packages\Python*\Scripts").FullName
-        [string]$PythonIconPath="$($env:LOCALAPPDATA)\Packages\$($PythonApp.PackageFamilyName)\python.exe"
-        if(!(Test-Path $PythonIconPath)) {
-            Copy-Item "$($PythonInstallLoc)" "$(Split-Path -Path $PythonIconPath)"
-        }
+        [string]$PythonIconPath=(GetDistroIcon "$($PythonApp.Name)" -CopyAppIconPNG -PNGSubLoc "_resources\pythonx150.png")
+        # [string]$PythonDefaultIconPath=""
         try {
             [string]$PythonFileHKCR=((Get-ItemProperty "Registry::HKCR\.py\OpenWithProgids\") | get-member | Where-Object {$_.Name -like "AppX*"})[0].Name # Does not include HKCR itself
+            # $PythonDefaultIconPath=(Get-ItemProperty "Registry::HKCR\$($PythonFileHKCR)\DefaultIcon").'(default)'
+            # if($PythonDefaultIconPath -like "*/_resources/py.png}") {
+            #     $PythonDefaultIconPath=$PythonDefaultIconPath.replace('py.png}','idlex150.png}') # The icon is too low-res, so better not use it.
+            # }
         }
         catch {
             [string]$PythonFileHKCR="py_auto_file"
@@ -176,7 +178,7 @@ else {
         [string]$PythonIconPath=$PythonEXELocation
         [string]$PythonScriptsLoc="$(Split-Path $PythonEXELocation)\Scripts"
     }
-    CreateFileAssociation "$($PythonFileHKCR)" -shelloperations @("open","edit") -Icon @("$($PythonIconPath)","`"$($VSCodeLocation)`",0") -Command ("","`"$($VSCodeLocation)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","")
+    CreateFileAssociation "$($PythonFileHKCR)" -shelloperations @("open","edit") -Icon @("$($PythonIconPath)","`"$($VSCodeLocation)`",0") -Command ("","`"$($VSCodeLocation)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","") # -DefaultIcon "$($PythonDefaultIconPath)"
 }
 # -----------Text files, VS Code related--------------
 # ------- All VSCode files ------
@@ -201,6 +203,7 @@ foreach($FileExt in (Get-ChildItem "Registry::HKCR\.*").Name) {
 CreateFileAssociation "Microsoft.System.Update.1" -ShellOperations "open" -Icon "wusa.exe,-101" -MUIVerb "@ActionCenter.dll,-2107"
 # ---------Windows folders--------
 CreateFileAssociation "Folder" -ShellOperations @("open","opennewwindow","opennewtab","opennewprocess","pintohome") -Icon @("main.cpl,-606","imageres.dll,-5322","imageres.dll,-116","","shell32.dll,-322") -LegacyDisable @(0,0,0,1,0) -MUIVerb @("@shell32.dll,-32960","","","","") -TypeName "@shell32.dll,-9338"
+SetValue "HKCR\Folder\shell\pintohome" -Name "SeparatorAfter" -Value ""
 # ---------Hard drives--------
 CreateFileAssociation "Drive" -ShellOperations @("manage-bde","encrypt-bde","encrypt-bde-elev","pintohome") -Icon @("shell32.dll,-194","shell32.dll,-194","shell32.dll,-194","shell32.dll,-322")
 # --------Directories--------
@@ -399,13 +402,6 @@ CreateFileAssociation "CLSID\{6C8EEC18-8D75-41B2-A177-8831D59D2D50}" -DefaultIco
 CreateFileAssociation "CLSID\{D555645E-D4F8-4c29-A827-D93C859C4F2A}" -DefaultIcon "shell32.dll,-268" # Control panel - Ease of access center
 CreateFileAssociation "CLSID\{9C60DE1E-E5FC-40f4-A487-460851A8D915}" -DefaultIcon "imageres.dll,-5362" # Control panel - AutoPlay
 CreateFileAssociation "CLSID\{A8A91A66-3A7D-4424-8D24-04E180695C7A}" -DefaultIcon "imageres.dll,-196" # Control panel - Devices and Printers
-[string]$OneDriveInstallLoc=(CheckInstallPath "Microsoft?OneDrive\OneDrive.exe")
-if(Test-Path "$($OneDriveInstallLoc)") {
-    [string]$WorkFolderIcon="`"$($OneDriveInstallLoc)`",-589"
-}
-else {
-    [string]$WorkFolderIcon="WorkFoldersRes.dll,-1"
-}
 CreateFileAssociation "CLSID\{ECDB0924-4208-451E-8EE0-373C0956DE16}" -DefaultIcon "$($WorkFolderIcon)" # Control panel - Work folders
 CreateFileAssociation "CLSID\{BB06C0E4-D293-4f75-8A90-CB05B6477EEE}" -DefaultIcon "mstsc.exe,-20022" # Control panel - System
 CreateFileAssociation "CLSID\{BD84B380-8CA2-1069-AB1D-08000948F534}" -DefaultIcon "imageres.dll,-129" # Control panel - Font folder
@@ -472,33 +468,7 @@ else {
 CreateKey "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{59031A47-3F72-44A7-89C5-5595FE6B30EE}\DefaultIcon" -StandardValue $UserFolderIcon
 CreateKey "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}\DefaultIcon" -StandardValue "imageres.dll,-120" # Network places
 # --------------OneDrive---------------
-# Change OneDrive (private) and OneDrive (business) icon and name
-[object[]]$OneDriveEntries=(Get-ChildItem "Registry::HKCU\Software\Microsoft\OneDrive\Accounts\" | `
-    Where-object { ($_ | Get-ItemProperty).UserEmail -like "*@*" }) # Only entries with proper E-Mail addresses are considered.
-foreach($OneDriveEntry in $OneDriveEntries) {
-    [string]$OneDriveCLSID=(Get-ItemProperty "Registry::$($OneDriveEntry.Name)").NamespaceRootId
-    [string]$OneDriveFolderLoc=(Get-ItemProperty "Registry::$($OneDriveEntry.Name)").UserFolder
-    if($OneDriveEntry.Name -like "*Personal") {
-        [string]$OneDriveIcon="imageres.dll,-1040" # "imageres.dll,-1040" # 1306 is my suitcase
-    }
-    elseif($OneDriveEntry.Name -like "*Business*") {
-        [string]$OneDriveIcon="`"$($OneDriveInstallLoc)`",-589"
-    }
-    if([System.Environment]::OSVersion.Version.Build -ge 26100) { # Latest version of OneDrive supported. Otherweise let OneDrive app manage the CLSID entry
-        MkDirCLSID $OneDriveCLSID -Name "OneDrive" -Icon "$($OneDriveIcon)" -FolderType 9 -TargetPath "$($OneDriveFolderLoc)" -FolderValueFlags 0x28 # 0x30
-    }
-    else {
-        Mkdirclsid $Onedriveclsid -RemoveCLSID
-        MkDirCLSID $Onedriveclsid -Name "OneDrive" -Icon "$($OnedriveIcon)" -FolderType 9 -IsShortcut -FolderValueFlags 0x28 -MkInHKLM
-        CreateFileAssociation "CLSID\$($OneDriveCLSID)" -defaulticon "imageres.dll,-1040" -shelloperations "Open" -icon "$($OneDriveIcon)" -Command "explorer.exe `"$($OneDriveFolderLoc)`""
-        CreateKey "HKLM\Software\Classes\CLSID\$($OneDriveCLSID)" -StandardValue "OneDrive"
-    }
-    if($OneDriveEntry.Name -like "*Personal*") {
-        MakeReadOnly "HKCU\Software\Classes\CLSID\$($OneDriveCLSID)" # -InclAdmin
-        CreateKey "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($OneDriveCLSID)"
-        MakeReadOnly "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($OneDriveCLSID)"
-    }
-}
+OneDriveRegistry
 # ________________
 # Hide unwanted drive letters
 [string[]]$DriveLetters=(Get-PSDrive -PSProvider FileSystem).Name

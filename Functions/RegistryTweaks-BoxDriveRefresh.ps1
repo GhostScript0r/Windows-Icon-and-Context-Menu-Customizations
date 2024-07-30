@@ -25,6 +25,8 @@ function BoxDriveRefresh {
             }
             else { # Box Drive Entry with online status overlay - Add to explorer
                 CreateKey "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\Namespace\$(Split-Path $BoxDriveCLSID -leaf)"
+                    . "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
+                    CreateFileAssociation $BoxDriveCLSID -shelloperations "Browse" -ShellOpDisplayName "box.com besuchen" -Icon "ieframe.dll,-190" -Command "rundll32 url.dll,FileProtocolHandler https://box.com"
             }
             # Remove Box Drive Entry from desktop
             Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Desktop\$(Split-Path $BoxDriveCLSID -leaf)" -Force -ea 0

@@ -1,7 +1,6 @@
 . "$($PSScriptRoot)\RegistryTweaks-BasicOps.ps1"
 . "$($PSScriptRoot)\GetIcons.ps1"
 . "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
-. "$($PSScriptRoot)\CheckDefaultBrowser.ps1"
 . "$($PSScriptRoot)\RegistryTweaks-ReadStorage.ps1"
 . "$($PSScriptRoot)\RegistryTweaks-ContextMenuWebsite.ps1"
 function GenerateCustomNamespace {
@@ -10,7 +9,6 @@ function GenerateCustomNamespace {
         [string[]]$Namespace,
         [switch]$Remove
     )
-    $DefaultBrowser=(CheckDefaultBrowser)
     foreach($Name in $Namespace) {
         Write-Host "Creating CLSID entry for folder / path $($Name) if it exists."
         switch ($Name) {
@@ -47,11 +45,11 @@ function GenerateCustomNamespace {
                         }
                         [bool]$WebsiteValid=$($DriveSite.length -gt 0)
                         Write-Host "Writing $($DriveSite)" -ForegroundColor Cyan
-                        [string]$WebsiteIcon="imageres.dll,-1404" #"$($env:Userprofile)\Links\$($DriveName.replace('_',' ')).ico"
-                        # if(!(Test-Path "$($WebsiteIcon)")) {
-                        #     $Websiteicon="$($DefaultBrowser[2])"
-                        # }
-                        CreateFileAssociation "CLSID\$($RcloneCLSID)" -ShellOperations "Browse" -Icon "$($WebsiteIcon)" -ShellOpDisplayName "$($DriveSite) besuchen" -Command "$($DefaultBrowser[1].replace('`"%1`"',$DriveSite))" -LegacyDisable (-Not $WebsiteValid)
+                        [string]$WebsiteIcon="ieframe.dll,-190" # "imageres.dll,-1404" #"$($env:Userprofile)\Links\$($DriveName.replace('_',' ')).ico"
+                        if($Drivesite -notlike "https://*") {
+                            $Drivesite="https://"+$Drivesite
+                        }
+                        CreateFileAssociation "CLSID\$($RcloneCLSID)" -ShellOperations "Browse" -Icon "$($WebsiteIcon)" -ShellOpDisplayName "$($DriveSite.replace('https://','')) besuchen" -Command "rundll32 url.dll,FileProtocolHandler $($Drivesite)" -LegacyDisable (-Not $WebsiteValid)
                         SetValue "HKCR\CLSID\$($RcloneCLSID)\shell\Browse" -Name "Position" -Value "Top"
                     }
                     else {
@@ -65,7 +63,7 @@ function GenerateCustomNamespace {
                 Write-Host "Check if Games path in start menu exists"
                 [string]$GamesPath="$($env:APPDATA)\Microsoft\Windows\Start Menu\Programs\Spiele"
                 [string]$GamesCLSID="{a235a4f4-3349-42e1-b81d-a476cd7e33c0}"
-                if ((Test-Path "$($GamesPath)") -and !(Test-Path "Registry::HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($GamesCLSID)")) {
+                if (Test-Path "$($GamesPath)") {
                     MkDirCLSID $GamesCLSID -Name "@shell32.dll,-30579" -InfoTip "@searchfolder.dll,-9031" -Pinned 0 -TargetPath "$($GamesPath)" -FolderType 3 -Icon "imageres.dll,-186"
                     SetValue -RegPath "HKCU\Software\Classes\CLSID\$($GamesCLSID)\Instance\InitPropertyBag" -Name "TargetFolderPath" -Value "$($env:Appdata)\Microsoft\Windows\Start Menu\Programs\Spiele"
                     foreach($SubKey in @("","WOW6432Node\")) {
@@ -73,6 +71,18 @@ function GenerateCustomNamespace {
                     }
                 }
                 WebsiteInContextMenu $GamesCLSID -SiteNames @("Epic Games Store")
+                [string]$EpicLauncherLoc="C:\Program Files (x86)\Epic Games\Launcher\Portal\Binaries\Win32\EpicGamesLauncher.exe"
+                if(Test-Path "$($EpicLauncherLoc)") {
+                    CreateFileAssociation "CLSID\$($GamesCLSID)" -ShellOperations "Epic Games Store" -Command "$($EpicLauncherLoc)" -Icon "$($EpicLauncherLoc)"
+                }
+                $nVidiaContainerFile=(Get-Item "C:\Windows\System32\DriverStore\FileRepository\nvlti.inf_*\Display.NvContainer\NVDisplay.Container.exe")
+                [bool]$nVidiaCPAppInstalled=((Get-AppxPackage NVIDIACorp.NVIDIAControlPanel).Count -eq 1)
+                if($nVidiaContainerFile.count -gt 0) {
+                    # Add nVidia settings to Games menu
+                    if($nVidiaCPAppInstalled) {
+                        CreateFileAssociation "CLSID\$($GamesCLSID)" -ShellOperations "nVidia Control Panel" -Command "explorer.exe shell:AppsFolder\NVIDIACorp.NVIDIAControlPanel_56jybvy8sckqj!NVIDIACorp.NVIDIAControlPanel" -Icon "$($nVidiaContainerFile)"
+                    }
+                }
             }
             'AllApps' {
                 # CLSID for the device {4234d49b-0245-4df3-b780-3893943456e1}
@@ -83,7 +93,8 @@ function GenerateCustomNamespace {
                     continue
                 }
                 CreateKey "HKCR\CLSID\$($AllAppsCLSID)" -StandardValue "@werconcpl.dll,-10100"
-                CreateFileAssociation "CLSID\$($AllAppsCLSID)" -DefaultIcon "imageres.dll,-198" -ShellOperations @("open","edit","openinstore") -Command @("explorer.exe shell:::{4234d49b-0245-4df3-b780-3893943456e1}","control.exe appwiz.cpl","explorer.exe shell:AppsFolder\Microsoft.WindowsStore_8wekyb3d8bbwe!App") -TypeName "@appmgr.dll,-667" -Icon @("shell32.dll,-20","appwiz.cpl,-1500","shell32.dll,-239") -MUIVerb ("","","@shell32.dll,-5382")
+                GetDistroIcon "Microsoft.WindowsStore" -CopyAppIconPNG -PNGSubLoc "Assets\Illustrations\LifeLineIcon.png"
+                CreateFileAssociation "CLSID\$($AllAppsCLSID)" -DefaultIcon "imageres.dll,-198" -ShellOperations @("open","edit","openinstore") -Command @("explorer.exe shell:::{4234d49b-0245-4df3-b780-3893943456e1}","control.exe appwiz.cpl","explorer.exe shell:AppsFolder\Microsoft.WindowsStore_8wekyb3d8bbwe!App") -TypeName "@appmgr.dll,-667" -Icon @("shell32.dll,-20","appwiz.cpl,-1500","$($env:Userprofile)\Links\Microsoft.WindowsStore_LifeLineIcon.ico") -MUIVerb ("","@sud.dll,-228","@shell32.dll,-5382")
                 Remove-ItemProperty -Path "Registry::HKCR\CLSID\$($AllAppsCLSID)\shell\openinstore" -Name "Position" -ea 0
                 SetValue "HKCR\CLSID\$($AllAppsCLSID)" -Name "InfoTip" -Value "@appmgr.dll,-667"
                 SetValue "HKCR\CLSID\$($AllAppsCLSID)" -Name "SortOrderIndex" -Type "4" -Value 0x42
@@ -169,8 +180,14 @@ Windows Registry Editor Version 5.00
                 }
                 WebsiteInContextMenu "{24ad3ad4-a569-4530-98e1-ab02f9417aa8}" -SiteNames @("Google_Photos","Flickr")
                 WebsiteInContextMenu "{d3162b92-9365-467a-956b-92703aca08af}" -SiteNames @("Google Docs","Adobe Document Cloud","Google Play Books")
-                WebsiteInContextMenu "{f86fa3ab-70d2-4fc7-9c99-fcbf05467f3a}" -SiteNames @("YouTube","YouTube Studio")
-                WebsiteInContextMenu "{3dfdf296-dbec-4fb4-81d1-6a3438bcf4de}" -SiteNames @("Spotify","YouTube Music")
+                WebsiteInContextMenu "{f86fa3ab-70d2-4fc7-9c99-fcbf05467f3a}" -SiteNames @("YouTube","YouTube Studio","ZDF Mediathek","ARD Mediathek")
+                CreateFileAssociation "CLSID\{f86fa3ab-70d2-4fc7-9c99-fcbf05467f3a}" -ShellOperations "YouTube Studio" -Extended 1
+                WebsiteInContextMenu "{3dfdf296-dbec-4fb4-81d1-6a3438bcf4de}" -SiteNames @("Spotify","YouTube Music","Radio")
+                $AudialsInstalled=(Get-AppxPackage AudialsAG.AudialsPlay)
+                if($AudialsInstalled.count -eq 1) { # Audials play installed
+                    GetDistroIcon "AudialsAG.AudialsPlay" -CopyAppIconPNG -PNGSubLoc "Assets\StoreLogo.scale-400.png"
+                    CreateFileAssociation "CLSID\{3dfdf296-dbec-4fb4-81d1-6a3438bcf4de}" -ShellOperations "Radio" -Icon "$($env:Userprofile)\Links\AudialsAG.AudialsPlay_StoreLogo.scale-400.ico" -ShellOpDisplayName "AudialsPlay starten" -Command "explorer.exe shell:AppsFolder\AudialsAG.AudialsPlay_3eby6px24ctcy!AudialsAG.AudialsPlay"
+                }
                 SetValue -RegPath "HKCR\CLSID\{088e3905-0323-4b02-9826-5d99428e115f}" -Name "Infotip" -Value "@occache.dll,-1070" # Downloads
                 SetValue -RegPath "HKCR\CLSID\{d3162b92-9365-467a-956b-92703aca08af}" -Name "Infotip" -Value "@shell32.dll,-22914" # MyDocuents                
             }

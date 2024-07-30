@@ -1,7 +1,7 @@
 param(
     [switch]$OpenLink
 )
-foreach($PSFun in @("RegistryTweaks-BasicOps","RegistryTweaks-FileAssoc","CheckDefaultBrowser","BallonNotif")) {
+foreach($PSFun in @("RegistryTweaks-BasicOps","RegistryTweaks-FileAssoc","BallonNotif")) {
     . "$($PSScriptRoot)\Functions\$($PSFun).ps1"
 }
 function GetBingXML {
@@ -51,8 +51,7 @@ SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers" -N
 RUNDLL32.EXE USER32.DLL,UpdatePerUserSystemParameters 1, True # Update Wallpaper
 if($OpenLink) {
     # Start-Sleep -s 2
-    $DefaultBrowser=(CheckDefaultBrowser)
-    . "$($DefaultBrowser[0])" $WpprLink # Run Default Browser
+    rundll32 url.dll,FileProtocolHandler $WpprLink # Run Default Browser
 }
 else {
     CreateFileAssociation "DesktopBackground" -ShellOperations "SearchDesktopBackground" -Icon "ieframe.dll,-31048" -Command "powershell.exe -File `"$($PSCommandPath)`" -ArgumentList `"-OpenLink`"" -ShellOpDisplayName "Hintergrundbild online suchen"

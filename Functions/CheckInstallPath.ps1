@@ -26,8 +26,8 @@ function CheckInstallPath {
         $InstallLocation[1]="$($env:LOCALAPPDATA)"
     }
     for($i=0;$i -lt $InstallLocation.length;$i++) {
-        if(Test-Path "$($InstallLocation[$i])\$($Program)") {
-            [string]$ProgramLocation="$($InstallLocation[$i])\$($Program)"
+        [string]$ProgramLocation="$($InstallLocation[$i])\$($Program)"
+        if(Test-Path "$($ProgramLocation)") {
             Write-Host "$(Split-Path $Program -leaf) is installed in $($InstallLocation[$i])"
             break
         }
