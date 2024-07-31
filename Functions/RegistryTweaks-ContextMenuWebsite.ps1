@@ -21,7 +21,7 @@ function WebsiteInContextMenu {
             continue
         }
         if($SiteLinks[$ii] -notlike "https://*") {
-            $SiteLinks[$ii]="https://*"+$sitelinks[$ii]
+            $SiteLinks[$ii]="https://"+$sitelinks[$ii]
         }
         $SiteCommands[$ii]="rundll32 url.dll,FileProtocolHandler $($Sitelinks[$ii])"
         $SiteIcons[$ii]="$($env:USERPROFILE)\Links\$($SiteNames[$ii]).ico"
