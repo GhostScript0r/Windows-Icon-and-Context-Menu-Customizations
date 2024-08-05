@@ -9,6 +9,7 @@ function UpdateStorageInfo {
         [switch]$NetDriveOnly
     )
     [string[]]$CustomDrives=(Split-Path ((Get-ChildItem "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace").Name) -leaf)
+    [bool]$PingSucceeded=(Test-NetConnection box.com).pingsucceeded
     foreach($Drive in $CustomDrives) {
         if(!(Test-Path "Registry::HKCR\CLSID\$($Drive)")) { # the drive's definition is no longer present, possibly drive uninstalled, leaving a blank icon in explorer. Time to remove this entry
             Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($Drive)"
@@ -72,7 +73,7 @@ function UpdateStorageInfo {
                     Write-Host "Skipped" -BackgroundColor White -ForegroundColor Black
                     continue
                 }
-                if((Test-NetConnection box.com).pingsucceeded) { # Only calculate disk size if there's internet connection.
+                if($PingSucceeded) { # Only calculate disk size if there's internet connection.
                     if((($DriveName -like "Google*" -and (Test-Path "C:\Program Files\Google\Drive File Stream\drive_fs.ico")) -or ($DriveName -like "pCloud*" -and (Test-Path "C:\Program Files\pCloud Drive\pcloud.exe"))) -and ($DriveName -NotLike "*Yahoo*")) { # Virtual drives created by Google Drive and pCloud app
                         if($DriveName -like "Google*") {$DriveLetter="A"}
                         elseif($DriveName -like "pCloud*") {$DriveLetter="P"}
@@ -109,10 +110,13 @@ function UpdateStorageInfo {
                         elseif($DriveName -like "Google Drive*") {
                             $TotalSpace = "15 GB"
                         }
+                        elseif($DriveName -like "MEGA*") {
+                            $TotalSpace= "20 GB"
+                        }
                         $UsedSpace=Readablefilesize((Get-ChildItem "$($env:Userprofile)\$($DriveName -creplace ' ','_')" -Force -Recurse | Measure-Object -Sum Length).Sum + $OneNoteSize)   
                     }
                     else { # Drive cannot be sorted
-                        $UsedSpace="rClone gestoppt"
+                        $UsedSpace="OFFLINE"
                     }
                     if($UsedSpace.length -eq 0) {
                         $UsedSpace="0 B"
@@ -121,7 +125,7 @@ function UpdateStorageInfo {
                         $TotalSpace="0 GB"
                     }
                     [string]$StorageInformation="$($UsedSpace)"
-                    if($UsedSpace -notlike "rClone gestoppt") {
+                    if($UsedSpace -notlike "keine Verbindung") {
                        $StorageInformation=$StorageInformation + " von $($TotalSpace) belegt" 
                     }
                 }

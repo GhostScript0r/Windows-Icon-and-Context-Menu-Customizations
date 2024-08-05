@@ -1,7 +1,7 @@
 . "$($PSScriptRoot)\Functions\RunAsAdmin.ps1"
 RunAsAdmin "$($PSCommandPath)"
 if((Test-NetConnection box.com).pingsucceeded) { # Need to ping box.com to make sure ipv4 works
-    [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match '\[.*\]') -replace '\[','' -replace '\]','') | Where-Object {$_ -NotIn @("Box","Google_Drive")}
+    [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match '\[.*\]') -replace '\[','' -replace '\]','') | Where-Object {$_ -NotIn @("Box")}
     foreach($rCloneEntry in $rCloneDrives) {
         if($rCloneEntry -eq "Google_Photos") {
             [string]$rCloneLocalFolder="$($env:USERPROFILE)\Pictures\$($rCloneEntry)"

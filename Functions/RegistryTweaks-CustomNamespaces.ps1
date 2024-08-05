@@ -21,7 +21,7 @@ function GenerateCustomNamespace {
                 }
                 . "$($PSScriptRoot)\Hashtables.ps1"
                 [hashtable]$DrivesWebsites=$(GetHashTables "CloudWebsites")
-                [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','') | Where-Object {$_ -NotIn @('Box','Google_Drive','Google_Photos')} # RClone Drive Names is stored with [] in rclone.conf
+                [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','') | Where-Object {$_ -NotIn @('Google_Drive','Google_Photos')} # 'Box' # RClone Drive Names is stored with [] in rclone.conf
                 for($i=0;$i -lt 9; $i++) { # This script can display max. 10 CLSID entries.
                     [string]$RcloneCLSID="{6587a16a-ce27-424b-bc3a-8f044d36fd9$($i)}"
                     if(($i -lt $rCloneDrives.count)) {
@@ -32,8 +32,8 @@ function GenerateCustomNamespace {
                         [string]$CloudDriveName=$rCloneDrives[$i].SubString(0,$StringLength)
                         [string[]]$DriveIcons=(GetDistroIcon "$($CloudDriveName)" -CloudDrive)
                         [string]$DriveIcon=$DriveIcons[1]
-                        if($DriveIcon.length -eq 0) {
-                            $DriveIcon="`"$($rClonePath)`",0"
+                        if(($DriveIcon.length -eq 0) -or (!(Test-Path "$($DriveIcon)") -and ($DriveIcon -like "*.ico"))) { # some cloud drives use DLL entries instead of ICO.
+                            $DriveIcon=(GetDistroIcon "rClone" -CloudDrive)[1]
                         }
                         MkDirCLSID "$($RcloneCLSID)" -Name "$($rCloneDrives[$i] -replace '_',' ')" -TargetPath "$($env:Userprofile)\$($rCloneDrives[$i])" -Icon "$($DriveIcon)" -FolderType 9 -Pinned 0
                         [string]$DriveSite=""
@@ -103,8 +103,7 @@ function GenerateCustomNamespace {
             }
             'Google Drive' {
                 [string]$GoogleDriveCLSID="{9499128F-5BF8-4F88-989C-B5FE5F058E79}"
-                if((Test-Path "C:\Program Files\Google\Drive File Stream\drive_fs.ico") -and !(Test-Path "Registry::HKCR\CLSID\$($GoogleDriveCLSID)")) {
-                    MkDirCLSID $GoogleDriveCLSID -Name "Google Drive" -TargetPath "A:\" -FolderType 9 -Icon "C:\Program Files\Google\Drive File Stream\drive_fs.ico"
+                if((Test-Path "C:\Program Files\Google\Drive File Stream\drive_fs.ico")) { # -and !(Test-Path "Registry::HKCR\CLSID\$($GoogleDriveCLSID)")
                     $GoogleDriveReg=@'
 Windows Registry Editor Version 5.00
 
@@ -121,6 +120,16 @@ Windows Registry Editor Version 5.00
                     ImportReg $GoogleDriveReg
                     SetValue -RegPath "HKEY_CURRENT_USER\Software\Google\DriveFS\Share" -Name "BasePath" -Value "$($env:LOCALAPPDATA)\Google\DriveFS"
                     SetValue -RegPath "HKEY_CURRENT_USER\Software\Google\DriveFS\Share" -Name "ShellIpcPath" -Value "\\.\Pipe\GoogleDriveFSPipe_$($env:UserName)_shell"
+                    GetDistroIcon "Google Drive" -CloudDrive
+                    [string]$GDriveIcon="$($env:Userprofile)\Links\Google DriveFolder.ico"
+                    if(!(Test-Path "$Gdriveicon")) {
+                        $GDriveIcon="C:\Program Files\Google\Drive File Stream\drive_fs.ico"
+                    }
+                    MkDirCLSID $GoogleDriveCLSID -Name "Google Drive" -TargetPath "A:\Meine Ablage" -FolderType 9 -Icon "$GDriveIcon"
+                    # Hide Drive Letter A
+                    . "$($PSScriptRoot)\RegistryTweaks-Drives.ps1"
+                    HideDriveLetters
+                    UpdateStorageInfo -NetDriveOnly
                 }
                 else {
                     remove-item "Registry::HKCR\CLSID\{9499128F-5BF8-4F88-989C-B5FE5F058E79}" -Force -Recurse -ErrorAction SilentlyContinue

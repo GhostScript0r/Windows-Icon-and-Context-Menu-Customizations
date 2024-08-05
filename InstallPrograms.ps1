@@ -6,8 +6,10 @@ RunAsAdmin "$($PSCommandPath)"
 # ______________________________
 # Install WSL2 and Kali Linux
 if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem-Linux").State -like "enabled") {
-	if(($CurrentBuildVer.Build -ge 19041) -and (-not (Test-Path "C:\Program Files\WSL\wsl.exe"))) {
-		GitHubReleaseDownload "microsoft/WSL" -OtherStringsInFileName ".x64.msi" -InstallationName "Windows Subsystem for Linux"
+	if(($CurrentBuildVer.Build -ge 19041)) {
+		if(-not (Test-Path "C:\Program Files\WSL\wsl.exe")) {
+			GitHubReleaseDownload "microsoft/WSL" -OtherStringsInFileName ".x64.msi" -InstallationName "Windows Subsystem for Linux"
+		}
 	} # Older releases does not support WSL2 kernel on GitHub, needs to use update from Microsoft Update Catalog instead
 	elseif(($CurrentBuildVer.Build -ge 18000) -and ($CurrentBuildVer.Build -lt 19041)) { # WSL2 support starts from Windows 10 1903. Older versions like 2019 LTSC (1809) does not support WSL2 and can only run WSL1
 		[bool]$WSLKernelInstalled=(Get-ChildItem "HKLM:\Software\Microsoft\Windows\CurrentVersion\Uninstall" | Where-Object {(Get-ItemProperty "Registry::$($_.Name)").DisplayName -like "Windows Subsystem for Linux Update" }).count
@@ -37,6 +39,7 @@ if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem
 # msiexec.exe /i "$($env:TEMP)\GitHub.msi" /quiet 
 # __________________________
 # Install programs from GitHub
+GitHubReleaseDownload "kovidgoyal/calibre" -Arch "64bit" -Extension ".msi" -OtherStringsInFileName ".msi" -InstallPath "C:\Program Files" -InstallationName "calibre 64bit"
 GitHubReleaseDownload "jonaskohl/CapsLockIndicator" -Arch "CLI" -Extension ".exe" -DownloadOnly
 GitHubReleaseDownload "benbuck/rbtray" -OtherStringsInFileName ".zip" -IsZIP
 GitHubReleaseDownload "NationalSecurityAgency/ghidra" -Arch "PUBLIC" -OtherStringsInFileName ".zip" -IsZIP
