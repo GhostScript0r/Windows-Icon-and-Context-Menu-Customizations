@@ -22,7 +22,7 @@ function GenerateCustomNamespace {
                 . "$($PSScriptRoot)\Hashtables.ps1"
                 [hashtable]$DrivesWebsites=$(GetHashTables "CloudWebsites")
                 [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','') | Where-Object {$_ -NotIn @('Google_Drive','Google_Photos')} # 'Box' # RClone Drive Names is stored with [] in rclone.conf
-                for($i=0;$i -lt 9; $i++) { # This script can display max. 10 CLSID entries.
+                for($i=0;$i -le 9; $i++) { # This script can display max. 10 CLSID entries.
                     [string]$RcloneCLSID="{6587a16a-ce27-424b-bc3a-8f044d36fd9$($i)}"
                     if(($i -lt $rCloneDrives.count)) {
                         [int]$StringLength=$rCloneDrives[$i].LastIndexOf('_') # put lastindexof instead of indexof for Google_Drive or Google_Photos
@@ -130,6 +130,29 @@ Windows Registry Editor Version 5.00
                     . "$($PSScriptRoot)\RegistryTweaks-Drives.ps1"
                     HideDriveLetters
                     UpdateStorageInfo -NetDriveOnly
+                    [string[]]$GoogleDocsHKCR=(Split-Path (Get-Childitem "Registry::HKCR\GoogleDriveFS.*").Name -leaf)
+                    [string]$GDocOpenMUI="@shell32.dll,-12850"
+                    [string[]]$MFCFilesDE=(Get-Item "C:\Windows\system32\mfc1?0deu.dll").Name
+                    if($MFCFilesDE.count -gt 0) {
+                        $GDocOpenMUI="$($MFCFilesDE[0]),-57616"
+                    }
+                    foreach($Key in $GoogleDocsHKCR) {
+                        [string]$GDocsFileTypeIcon=(Get-ItemProperty "Registry::HKCR\$($Key)\DefaultIcon").'(default)'
+                        [int]$GDocsFileTypeNum=$GDocsFileTypeIcon.Substring($GDocsFileTypeIcon.indexof(',-')+2)
+                        [string]$GDocsIcon="C:\Program Files\Google\Drive File Stream\docs.ico"
+                        switch($GDocsFileTypeNum) {
+                            # {$_ -in 3,6} {
+                            #     $GDocsicon="C:\Program Files\Google\Drive File Stream\docs.ico"
+                            # }
+                            {$_ -in 5,17} {
+                                $GDocsicon="C:\Program Files\Google\Drive File Stream\slides.ico"
+                            }
+                            {$_ -in 4,16} {
+                                $GDocsicon="C:\Program Files\Google\Drive File Stream\sheets.ico"
+                            }
+                        }
+                        CreateFileAssociation $key -Shelloperations "open" -Icon $GDocsIcon -MUIVerb $GDocOpenMUI
+                    }
                 }
                 else {
                     remove-item "Registry::HKCR\CLSID\{9499128F-5BF8-4F88-989C-B5FE5F058E79}" -Force -Recurse -ErrorAction SilentlyContinue
@@ -198,7 +221,10 @@ Windows Registry Editor Version 5.00
                     CreateFileAssociation "CLSID\{3dfdf296-dbec-4fb4-81d1-6a3438bcf4de}" -ShellOperations "Radio" -Icon "$($env:Userprofile)\Links\AudialsAG.AudialsPlay_StoreLogo.scale-400.ico" -ShellOpDisplayName "AudialsPlay starten" -Command "explorer.exe shell:AppsFolder\AudialsAG.AudialsPlay_3eby6px24ctcy!AudialsAG.AudialsPlay"
                 }
                 SetValue -RegPath "HKCR\CLSID\{088e3905-0323-4b02-9826-5d99428e115f}" -Name "Infotip" -Value "@occache.dll,-1070" # Downloads
-                SetValue -RegPath "HKCR\CLSID\{d3162b92-9365-467a-956b-92703aca08af}" -Name "Infotip" -Value "@shell32.dll,-22914" # MyDocuents                
+                SetValue -RegPath "HKCR\CLSID\{d3162b92-9365-467a-956b-92703aca08af}" -Name "Infotip" -Value "@shell32.dll,-22914" # MyDocuents
+                SetValue -RegPath "HKCR\CLSID\{59031a47-3f72-44a7-89c5-5595fe6b30ee}" -Name "Infotip" -Value "@shell32.dll,-30372" # User profile folder infotip
+                SetValue -RegPath "HKCR\CLSID\{f874310e-b6b7-47dc-bc84-b9e6b38f5903}" -Name "Infotip" -Value "@propsys.dll,-42249" # Most frequently used folder
+                New-ItemProperty -Path "Registry::HKCR\CLSID\{59031a47-3f72-44a7-89c5-5595fe6b30ee}" -Name "System.IsPinnedToNameSpaceTree" -Value 1 -PropertyType "4" # Pin Userprofile to tree view
             }
         }
     }

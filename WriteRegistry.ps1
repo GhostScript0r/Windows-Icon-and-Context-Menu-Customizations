@@ -34,16 +34,14 @@ if($StorageRefreshOnly) {
 GenerateCustomNamespace @("Dropbox","Google Drive","rClone","Games","AllApps") #Generate namespaces for cloud drives and custom folders
 SetValue "HKLM\SYSTEM\ControlSet001\Control\TimeZoneInformation" -Name "RealTimeIsUniversal" -Type 4 -Value 1 # Use BIOS time as UTC
 HideMouseShadowPlay # NVidia Shadow Play - hide mouse button
-# ------- Check default browser ---------
-[string[]]$DefaultBrowser=(CheckDefaultBrowser)
-[string]$BrowserPath=$DefaultBrowser[0]
-[string]$BrowserOpenAction=$DefaultBrowser[1]
-[string]$BrowserIcon=$DefaultBrowser[2]
-[string]$OpenInBrowserText=$DefaultBrowser[3]
 # -------Get privileges to take ownership-------
 Write-Host "Preparing to take ownership of keys owned by SYSTEM or TrustedInstaller" # Python equivalent: print("...")
 #Take ownership of keys owned by SYSTEM or TrustedInstaller
 [string[]]$LockedHKCRMain=@(`
+    "HKCR\Launcher.AllAppsDesktopApplication\shell",`
+    "HKCR\Launcher.Computer\shell",`
+    "HKCR\Launcher.DesktopPackagedApplication\shell",`
+    "HKCR\Launcher.ImmersiveApplication\shell",`
     "HKCR\DesktopBackground\Shell\Display",`
     "HKCR\DesktopBackground\Shell\Personalize",`
     "HKCR\Directory\shell",`
@@ -138,16 +136,11 @@ catch { # If the last run returns an error
 if($JREInstalled) {
     CreateFileAssociation "jarfile" -ShellOperations "open" -MUIVerb "@shell32.dll,-12710" -Icon "javaw.exe"
 }
-# --------- zip relevant, compressed archives ---------
-ZipFileAssoc
-# ------- PDF Document -------
-PDFFileAsso
+ZipFileAssoc # zip relevant, compressed archives
+PDFFileAsso # PDF Document
 # ________________ VS Code related __________________
 # Check if VS Code is installed systemwide or for current user only
-[string[]]$VSCodeInfo=$(FindVSCodeInstallPath)
-[string]$VSCodeLocation=$Vscodeinfo[0]
-[string]$VSCodeIconsLoc=$VSCodeInfo[1]
-[string]$VSCodeAppHKCR=$VSCodeInfo[2]
+[hashtable]$VSCodeInfo=$(FindVSCodeInstallPath)
 # ------- Python script -------
 # > Find file location of Python
 [string]$PythonEXELocation=(where.exe python.exe)
@@ -178,19 +171,20 @@ else {
         [string]$PythonIconPath=$PythonEXELocation
         [string]$PythonScriptsLoc="$(Split-Path $PythonEXELocation)\Scripts"
     }
-    CreateFileAssociation "$($PythonFileHKCR)" -shelloperations @("open","edit") -Icon @("$($PythonIconPath)","`"$($VSCodeLocation)`",0") -Command ("","`"$($VSCodeLocation)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","") # -DefaultIcon "$($PythonDefaultIconPath)"
+    CreateFileAssociation "$($PythonFileHKCR)" -shelloperations @("open","edit") -Icon @("$($PythonIconPath)","`"$($VSCodeInfo.Path)`",0") -Command ("","`"$($VSCodeInfo.Path)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","") # -DefaultIcon "$($PythonDefaultIconPath)"
 }
 # -----------Text files, VS Code related--------------
 # ------- All VSCode files ------
+[string]$VSCodeVerHKCR=(FindVSCodeInstallPath).Registry
 [string[]]$VSCHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {$_ -like "$($VSCodeVerHKCR).*"})
 foreach($Key in $VSCHKCR) {
     if(Test-Path "Registry::HKCR\$($Key)\shell\open\command" -ea 0) { # Use this if argument to skip VS Code files without "command" subkey
-        CreateFileAssociation "$($Key)" -ShellOperations "open" -Icon "`"$($VSCodeLocation)`",0" -MUIVerb "@shell32.dll,-37398" -Extended 0 -command "`"$($VSCodeLocation)`" `"%1`""
+        CreateFileAssociation "$($Key)" -ShellOperations "open" -Icon "`"$($VSCodeInfo.Path)`",0" -MUIVerb "@shell32.dll,-37398" -Extended 0 -command "`"$($VSCodeInfo.Path)`" `"%1`""
     }  # Else: Do nothing for VS Code files without "command" subkey. Those are probably defined somewhere else.
 }
 CreateKey "HKCR\$($VSCodeVerHKCR).txt\DefaultIcon" -StandardValue "imageres.dll,-19"
-[string]$VSCodeAppHKCR=$(Split-Path "$($VSCodeLocation)" -leaf)
-CreateFileAssociation "Applications\$($VSCodeAppHKCR)" -ShellOperations "open" -Icon "`"$($VSCodeLocation)`",0" -MUIVerb "@certmgr.dll,-291" -Command "`"$($VSCodeLocation)`" `"%1`"" -DefaultIcon "imageres.dll,-19"
+[string]$VSCodeInfo.Registry=$(Split-Path "$($VSCodeInfo.Path)" -leaf)
+CreateFileAssociation "Applications\$($VSCodeInfo.Registry)" -ShellOperations "open" -Icon "`"$($VSCodeInfo.Path)`",0" -MUIVerb "@certmgr.dll,-291" -Command "`"$($VSCodeInfo.Path)`" `"%1`"" -DefaultIcon "imageres.dll,-19"
 # Give "Text" property to all VS Code related files
 foreach($FileExt in (Get-ChildItem "Registry::HKCR\.*").Name) {
     [string]$ProgID=(Get-ItemProperty -LiteralPath "Registry::$($FileExt)\OpenWithProgIds" -ea 0) 
@@ -199,78 +193,19 @@ foreach($FileExt in (Get-ChildItem "Registry::HKCR\.*").Name) {
         CreateKey "$($FileExt)\PersistentHandler" -StandardValue "{5e941d80-bf96-11cd-b579-08002b30bfeb}"
     }
 }
-# --------Windows Update package (MSU)--------
-CreateFileAssociation "Microsoft.System.Update.1" -ShellOperations "open" -Icon "wusa.exe,-101" -MUIVerb "@ActionCenter.dll,-2107"
-# ---------Windows folders--------
-RegFolderContextMenu
-SetValue "HKCR\Folder\shell\pintohome" -Name "SeparatorAfter" -Value ""
-# ---------Hard drives--------
-CreateFileAssociation "Drive" -ShellOperations @("manage-bde","encrypt-bde","encrypt-bde-elev","pintohome") -Icon @("shell32.dll,-194","shell32.dll,-194","shell32.dll,-194","shell32.dll,-322")
-# --------Directories--------
-[string[]]$PowerShellDef=@("","powershell.exe,0") # [0]: Display Name; [1]: Icon file
-# Hide "Open in terminal" entry to unify how the menu looks.
-SetValue "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked" `
-    -Name "{9F156763-7844-4DC4-B2B1-901F640F5155}" -EmptyValue $true # Terminal
-SetValue "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked" `
-    -Name "{02DB545A-3E20-46DE-83A5-1329B1E88B6B}" -EmptyValue $true # Terminal preview
-[bool]$WTInstalled=(CheckTerminal)
-if($WTInstalled) {
-    [string]$CmdMenuCommand="wt.exe -d `"%V `" -p `"Eingabeaufforderung`""
-    [string]$PwsMenuCommand="wt.exe -d `"%V `" -p `"PowerShell`""
-    [string]$PwsUACCommand="PowerShell -windowstyle hidden -Command `"Start-Process wt.exe -ArgumentList '-d `"`"%V `"`"`"' -Verb RunAs`""
-}
-else {
-    [string]$CmdMenuCommand="cmd.exe -d `"%V `""
-    [string]$PwsMenuCommand="powershell.exe -NoExit -Command Set-Location -LiteralPath `"%V`""
-    [string]$PwsUACCommand="PowerShell.exe -windowstyle hidden -Command `"Start-Process powershell.exe -ArgumentList '-noexit -command Set-Location -LiteralPath `"`"%V `"`"`"' -Verb RunAs`""
-}
-CreateFileAssociation @("Directory\Background","Directory","LibraryFolder\background") `
-    -ShellOperations @("cmd","VSCode","VSCodeWithAdmin","git_shell","git_gui","Powershell","PowershellWithAdmin") `
-    -ShellOpDisplayName @("","Hier VS Code starten","Hier VS Code starten (Administrator)","","","","PowerShell (Admin) hier starten") `
-    -Icon @("cmd.exe,0","`"$($VSCodeLocation)`",0","`"$($VSCodeLocation)`",0","`"C:\Program Files\Git\git-bash.exe`",0",`
-        "`"C:\Program Files\Git\git-bash.exe`",0","$($PowerShellDef[1])","$($PowerShellDef[1])") `
-    -Extended @(0,0,0,1,1,0,0) `
-    -LegacyDisable @(1,0,0,0,0,0,0) `
-    -HasLUAShield @(0,0,1,0,0,0,1) `
-    -MUIVerb @("","","","","","@shell32.dll,-8508","@twinui.pcshell.dll,-10929") `
-    -Command @("$($CmdMenuCommand)","`"$($VSCodeLocation)`" `"%v `"",`
-        "PowerShell -windowstyle hidden -Command `"Start-Process '$($VSCodeLocation)' -ArgumentList '-d `"`"%V`"`"`"' -Verb RunAs`"",`
-        "wt.exe new-tab --title Git-Bash --tabColor #300a16 --suppressApplicationTitle `"C:\Program Files\Git\bin\bash.exe`"",`
-        "",` # git-gui no need to define
-        "$($PwsMenuCommand)",`
-        "$($PwsUACCommand)") # No WSL entry because WSL entry was spinned off into another PS1 script
-Remove-Item -Path "Registry::HKCR\Directory\Background\DefaultIcon" -ea 0 # Not needed
-# Admin commands don't work in Library Folders, so disable them in Libraries
-CreateFileAssociation "LibraryFolder\background" -ShellOperations @("VSCodeWithAdmin","PowerShellWithAdmin") -LegacyDisable @(1,1) 
-foreach($GitContextMenu in @("git_shell","git_bash"))
-{
-    MakeReadOnly "HKCR\Directory\Background\shell\$($GitContextMenu)" -InclAdmin
-}
-# Show above mentioned entries only on directory background, NOT when clicking a folder
-CreateFileAssociation "Directory" -ShellOperations @("cmd","VSCode","VSCodeWithAdmin","git_shell","git_gui","Powershell","PowershellWithAdmin","WSL") -Extended @(1,1,1,1,1,1,1,1) -LegacyDisable @(1,1,1,1,1,1,1,1)
-# Desktop functionality
-CreateFileAssociation "DesktopBackground" -ShellOperations @("Display","Personalize") -Icon @("ddores.dll,-2109","shell32.dll,-270")
+CreateFileAssociation "Microsoft.System.Update.1" -ShellOperations "open" -Icon "wusa.exe,-101" -MUIVerb "@ActionCenter.dll,-2107" # Windows Update package (MSU)
+FolderContextMenu # Folders
+ChangeBitLockerIcon
+DirectoryContextMenu # --------Directories--------
 RemoveAMDContextMenu # Remove AMD Radeon context menu entries
-# -------Image files-------
-ImageFileAssoc
-# --------Media files-----
-MediaPlayerFileAssoc
-# --------EXE File--------
-CreateFileAssociation "exefile" -ShellOperations @("open","runas") `
-    -Icon @("imageres.dll,-100","imageres.dll,-100") `
-    -MUIVerb @("@shell32.dll,-12710","") -HasLUAShield @(0,1)
-# -------Screensaver-------
-CreateFileAssociation "scrfile" -FileAssoList ".scr" -DefaultIcon "%1" `
-    -ShellOperations @("config","install","open") `
-    -Icon @("mmcndmgr.dll,-30572","setupugc.exe,-133","webcheck.dll,-407")
+ImageFileAssoc # Image files
+MediaPlayerFileAssoc # Media files
+CreateFileAssociation @("exefile","Launcher.DesktopPackagedApplication","Launcher.AllAppsDesktopApplication","Launcher.DesktopPackagedApplication","Windows.PackagedApplicationCommand") -ShellOperations @("open","runas") -Icon @("imageres.dll,-100","imageres.dll,-100") -MUIVerb @("@shell32.dll,-12710","") -HasLUAShield @(0,1) # EXE files
+CreateFileAssociation "Launcher.AllAppsDesktopApplication" -ShellOperations @("Feature.Uninstall","OpenFileLocation","OpenNewWindow","Uninstall") -Icon @("DevicePairingFolder.dll,-151","main.cpl,-606","imageres.dll,-5322","DevicePairingFolder.dll,-151") -MUIVerb @("@pcsvdevice.dll,-584","","","@shell32.dll,-24722")
+CreateFileAssociation "Launcher.ImmersiveApplication" -ShellOperations "open" -Icon "imageres.dll,-100" -MUIVerb "@shell32.dll,-12710"
+CreateFileAssociation "scrfile" -FileAssoList ".scr" -DefaultIcon "%1" -ShellOperations @("config","install","open") -Icon @("mmcndmgr.dll,-30572","setupugc.exe,-133","webcheck.dll,-407") # Screensavers
 # ---------TXT File---------
-CreateFileAssociation @("txtfile","textfile","SystemFileAssociations\text") `
-    -DefaultIcon "imageres.dll,-19" `
-    -ShellOperations @("open","edit") `
-    -ShellDefault "open" `
-    -LegacyDisable @(0,1) `
-    -Icon @("`"$($VSCodeLocation)`",0","`"$($VSCodeLocation)`",0") `
-    -Command @("`"$($VSCodeLocation)`" `"%1`"","`"$($VSCodeLocation)`" `"%1`"") `
+CreateFileAssociation @("txtfile","textfile","SystemFileAssociations\text") -DefaultIcon "imageres.dll,-19" -ShellOperations @("open","edit") -ShellDefault "open" -LegacyDisable @(0,1) -Icon @("`"$($VSCodeInfo.Path)`",0","`"$($VSCodeInfo.Path)`",0") -Command @("`"$($VSCodeInfo.Path)`" `"%1`"","`"$($VSCodeInfo.Path)`" `"%1`"") `
     -MUIVerb @("@mshtml.dll,-2210","")
 if(Test-Path "Registry::HKCR\txtfile\shell\print\command") {
     CreateFileAssociation @("txtfile","textfile") -ShellOperations @("print","printto") `
@@ -280,42 +215,45 @@ if(Test-Path "Registry::HKCR\txtfile\shell\print\command") {
 # ------- Cheat Engine Cheat Table-------
 if(Test-Path "Registry::HKCR\CheatEngine\DefaultIcon") {
     [string]$CheatEnginePath=(Get-ItemProperty -LiteralPath "Registry::HKCR\CheatEngine\DefaultIcon").'(default)' -replace ',0',''
-    CreateFileAssociation "CheatEngine" -shelloperations @("open","edit") -Icon @("$($CheatEnginePath)","`"$($VSCodeLocation)`",0") -Command @("","`"$($VSCodeLocation)`" `"%1`"")
+    CreateFileAssociation "CheatEngine" -shelloperations @("open","edit") -Icon @("$($CheatEnginePath)","`"$($VSCodeInfo.Path)`",0") -Command @("","`"$($VSCodeInfo.Path)`" `"%1`"")
 }
 # --------BAT, CMD, COM script-------
-CreateFileAssociation @("batfile","cmdfile","comfile") -ShellOperations @("open","print","edit","runas") -Icon @("cmd.exe,0","DDOres.dll,-2414","`"$($VSCodeLocation)`",0","cmd.exe,0") -MUIVerb @("@shell32.dll,-12710","","","") -Command @("","","`"$($VSCodeLocation)`" `"%1`"","") -Extended @(0,1,0,0) -LegacyDisable @(0,1,0,0) -DefaultIcon "cmd.exe,0" ` # "$($VSCodeIconsLoc)\shell.ico"
+CreateFileAssociation @("batfile","cmdfile","comfile") -ShellOperations @("open","print","edit","runas") -Icon @("cmd.exe,0","DDOres.dll,-2414","`"$($VSCodeInfo.Path)`",0","cmd.exe,0") -MUIVerb @("@shell32.dll,-12710","","","") -Command @("","","`"$($VSCodeInfo.Path)`" `"%1`"","") -Extended @(0,1,0,0) -LegacyDisable @(0,1,0,0) -DefaultIcon "cmd.exe,0" ` # "$($VSCodeInfo.Icon)\shell.ico"
 # --------VBE, VBS and JSE (JavaScript) Script--------
 if(Test-Path "C:\Windows\System32\wscript.exe") { # If VBS as a legacy component is not disabled yet.
     CreateFileAssociation @("VBSFile","VBEFile","JSEFile") ` # "$($VSCodeVerHKCR).vb",
     -ShellOperations @("open","open2","print","edit") `
-    -Icon @("wscript.exe,-1","cmd.exe,0","DDOres.dll,-2414","`"$($VSCodeLocation)`",0") `
+    -Icon @("wscript.exe,-1","cmd.exe,0","DDOres.dll,-2414","`"$($VSCodeInfo.Path)`",0") `
     -MUIVerb @("@shell32.dll,-12710","@wshext.dll,-4511","","") `
-    -Command @("WScript.exe `"%1`" %*","CScript.exe `"%1`" %*","","`"$($VSCodeLocation)`" `"%1`"") `
+    -Command @("WScript.exe `"%1`" %*","CScript.exe `"%1`" %*","","`"$($VSCodeInfo.Path)`" `"%1`"") `
     -FileAssoList @("vb","vbs","vbe","jse") `
     -Extended @(0,0,1,0) -LegacyDisable @(0,0,1,0)
 }
 # --------Registry file--------
-CreateFileAssociation "regfile" -ShellOperations @("open","edit","print") -Icon @("regedit.exe,0","`"$($VSCodeLocation)`",0","DDORes.dll,-2413") -Extended @(0,0,1) -command @("","`"$($VSCodeLocation)`" `"%1`"","")
+CreateFileAssociation "regfile" -ShellOperations @("open","edit","print") -Icon @("regedit.exe,0","`"$($VSCodeInfo.Path)`",0","DDORes.dll,-2413") -Extended @(0,0,1) -command @("","`"$($VSCodeInfo.Path)`" `"%1`"","")
 PowerToysFileAsso -RegFile
+# ------- Check default browser ---------
+[hashtable]$DefaultBrowser=(CheckDefaultBrowser)
+[hashtable]$EdgeBrowser=(CheckDefaultBrowser -ForceEdgeIfAvailable)
 # -------XML Document-------
 Remove-ItemProperty -Path "Registry::HKCR\.xml" -Name "PreceivedType" -ea 0 -Force
 foreach($ML_Ext in @("xml","htm","html")) {    
     Remove-ItemProperty -Path "Registry::HKCR\.$($ML_Ext)\OpenWithProgids" -Name "MSEdgeHTM" -ea 0 
 }
-CreateFileAssociation @("xmlfile","$($VSCodeVerHKCR).xml","xml_auto_file") -FileAssoList ".xml" -DefaultIcon "msxml3.dll,-128" -ShellOperations @("open","edit") -ShellDefault "edit" -Icon @("$($BrowserIcon)","`"$($VSCodeLocation)`",0") -MUIVerb @("$($OpenInBrowserText)","")-Command @("$($BrowserOpenAction)","`"$($VSCodeLocation)`" `"%1`"") -CommandId @("IE.File","") -DelegateExecute @("{17FE9752-0B5A-4665-84CD-569794602F5C}","")
+CreateFileAssociation @("xmlfile","$($VSCodeVerHKCR).xml","xml_auto_file") -FileAssoList ".xml" -DefaultIcon "msxml3.dll,-128" -ShellOperations @("open","edit") -ShellDefault "edit" -Icon @("$($DefaultBrowser.Icon)","`"$($VSCodeInfo.Path)`",0") -MUIVerb @("$($DefaultBrowser.Text)","")-Command @("$($DefaultBrowser.OpenAction)","`"$($VSCodeInfo.Path)`" `"%1`"") -CommandId @("IE.File","") -DelegateExecute @("{17FE9752-0B5A-4665-84CD-569794602F5C}","")
 Remove-Item "Registry::HKCR\xmlfile\ShellEx\IconHandler" -ea 0
 # ------- PS1 Script ------
-CreateFileAssociation @("Microsoft.PowerShellScript.1") -FileAssoList @("ps1")  -DefaultIcon "$($VSCodeIconsLoc)\powershell.ico" -ShellOperations @("open","edit","runas") -Icon @("scrptadm.dll,-7","`"$($VSCodeLocation)`",0","C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe,1") -MUIVerb @("@`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`",-108","","") -Command @("`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`"  `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`"","`"$($VSCodeLocation)`" `"%1`"","`"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`" `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`" -Verb RunAs")
+CreateFileAssociation @("Microsoft.PowerShellScript.1") -FileAssoList @("ps1")  -DefaultIcon "$($VSCodeInfo.Icon)\powershell.ico" -ShellOperations @("open","edit","runas") -Icon @("scrptadm.dll,-7","`"$($VSCodeInfo.Path)`",0","C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe,1") -MUIVerb @("@`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`",-108","","") -Command @("`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`"  `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`"","`"$($VSCodeInfo.Path)`" `"%1`"","`"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`" `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`" -Verb RunAs")
 CreateFileAssociation "SystemFileAssociations\.ps1" -ShellOperations @("0","Windows.PowerShell.Run") -LegacyDisable @(1,1)
 Remove-Item "Registry::HKCR\Microsoft.PowerShellScript.1\shell\0" -ea 0
 # ------- LOG File ------
 SetValue "HKCR\.log" -Name "Content Type" -Value "text/plain"
 SetValue "HKCR\.log" -Name "PerceivedType" -Value "text"
 # ------- Linux BASH -------
-CreateFileAssociation @("bashfile") -FileAssoList @("sh","bash") -ShellOperations @("open","edit") -Icon @("$($WSLLocation)","$($VSCodeLocation)") -Command @("wsl.exe bash `$(wslpath `"%1`")","`"$($VSCodeLocation)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","") -DefaultIcon "$($VSCodeIconsLoc)\shell.ico" -LegacyDisable @(!($WSLEnabled),0)
+CreateFileAssociation @("bashfile") -FileAssoList @("sh","bash") -ShellOperations @("open","edit") -Icon @("$($WSLLocation)","$($VSCodeInfo.Path)") -Command @("wsl.exe bash `$(wslpath `"%1`")","`"$($VSCodeInfo.Path)`" `"%1`"") -MUIVerb @("@shell32.dll,-12710","") -DefaultIcon "$($VSCodeInfo.Icon)\shell.ico" -LegacyDisable @(!($WSLEnabled),0)
 # --------HTML file--------
 [string]$OpenHTMLVerb="@ieframe.dll,-14756" # Open in new tab
-if($BrowserIcon -like "ieframe.dll,-31065") {
+if($DefaultBrowser.Path -like "*msedge.exe") {
     $OpenHTMLVerb="@ieframe.dll,-21819" # Open with Edge
 }
 if([System.Environment]::OSVersion.Version.Build -ge 22000) {
@@ -324,37 +262,44 @@ if([System.Environment]::OSVersion.Version.Build -ge 22000) {
 else {
     [string]$HTMLIcon="ieframe.dll,-110"
 }
-CreateFileAssociation @("htmlfile","$($VSCodeVerHKCR).htm","$($VSCodeVerHKCR).html","MSEdgeHTM","Applications\MSEdge.exe") -DefaultIcon "ieframe.dll,-210" -ShellOperations @("open","edit","print","printto") -Icon @("$($BrowserIcon)","`"$($VSCodeLocation)`",0","DDORes.dll,-2414","DDORes.dll,-2413") -Command @("$($BrowserOpenAction)","`"$($VSCodeLocation)`" `"%1`"","","") -MUIVerb @("$($OpenHTMLVerb)","","","") -LegacyDisable @(0,0,1,1)
+CreateFileAssociation @("htmlfile","$($VSCodeVerHKCR).htm","$($VSCodeVerHKCR).html","MSEdgeHTM","Applications\MSEdge.exe") -DefaultIcon "ieframe.dll,-210" -ShellOperations @("open","edit","print","printto") -Icon @("$($DefaultBrowser.Icon)","`"$($VSCodeInfo.Path)`",0","DDORes.dll,-2414","DDORes.dll,-2413") -Command @("$($DefaultBrowser.OpenAction)","`"$($VSCodeInfo.Path)`" `"%1`"","","") -MUIVerb @("$($OpenHTMLVerb)","","","") -LegacyDisable @(0,0,1,1)
+CreateFileAssociation @("MSEdgeHTM","Applications\MSEdge.exe") -Shelloperations "open" -Icon $EdgeBrowser.Icon -Command $EdgeBrowser.OpenAction
 MakeReadOnly "HKCR\MSEdgeHTM\DefaultIcon" -InclAdmin
 MakeReadOnly "HKCR\htmlfile\DefaultIcon" -InclAdmin
 # ------- URL Internet Shortcut -------
 foreach($PropertyToBeRemoved in @("NeverShowExt")) { #,"IsShortcut"
-    Remove-ItemProperty -Path "Registry::HKCR\InternetShortcut" -Name $PropertyToBeRemoved -ea 0
+    Remove-ItemProperty -Path "Registry::HKCR\InternetShortcut" -Name $PropertyToBeRemoved -Force -ea 0
 }
-Remove-Item -Path "Registry::HKCR\InternetShortcut\ShellEx\ContextMenuHandlers\{FBF23B40-E3F0-101B-8488-00AA003E56F8}" -Force
-CreateFileAssociation "InternetShortcut" -DefaultIcon "url.dll,-5" -ShellOperations @("open","edit","print","printto") -Icon @("$($BrowserIcon)","`"$($VSCodeLocation)`",0","ddores.dll,-2414","ddores.dll,-2413") -MUIVerb @("@synccenter.dll,-6102",,"","","") -LegacyDisable @(0,0,1,1) -Command @("powershell.exe -Command `"`$URL= ((Get-Content '%1') -like 'URL=*') -replace 'URL=',' '; Start-Process '$($BrowserPath)' -ArgumentList `$URL`"","`"$($VSCodeLocation)`" `"%1`"","","")
+Remove-Item -Path "Registry::HKCR\InternetShortcut\ShellEx\ContextMenuHandlers\{FBF23B40-E3F0-101B-8488-00AA003E56F8}" -Force -ea 0
+if([System.Environment]::OSVersion.Version.Build -ge 22000) {
+    [string]$URLIcon="url.dll,-5"
+}
+else {
+    [string]$URLIcon="urlmon.dll,-106"
+}
+CreateFileAssociation "InternetShortcut" -DefaultIcon $URLIcon -ShellOperations @("open","edit","print","printto") -Icon @("$($DefaultBrowser.Icon)","`"$($VSCodeInfo.Path)`",0","ddores.dll,-2414","ddores.dll,-2413") -MUIVerb @("@synccenter.dll,-6102",,"","","") -LegacyDisable @(0,0,1,1) -Command @("powershell.exe -Command `"`$URL= ((Get-Content '%1') -like 'URL=*') -replace 'URL=',' '; Start-Process 'rundll32.exe' -ArgumentList '$($DefaultBrowser.Path) `$URL'","`"$($VSCodeInfo.Path)`" `"%1`"","","")
 # --------Google Chrome HTML (if Chrome installed)--------
-if($BrowserPath -like "*chrome.exe*") {
+if($DefaultBrowser.Path -like "*chrome.exe*") {
     CreateFileAssociation "ChromeHTML" -DefaultIcon "$($HTMLIcon)" `
     -ShellOperations @("open","edit") -MUIVerb @("@SearchFolder.dll,-10496","") `
-    -Icon @("`"$($BrowserPath)`",0","`"$($VSCodeLocation)`",0") `
-    -Command @("`"$($BrowserPath)`" `"%1`"","`"$($VSCodeLocation)`" `"%1`"")
+    -Icon @("`"$($DefaultBrowser.Path)`",0","`"$($VSCodeInfo.Path)`",0") `
+    -Command @("`"$($DefaultBrowser.Path)`" `"%1`"","`"$($VSCodeInfo.Path)`" `"%1`"")
 }
 # ---------TTF Schriftart----------
 CreateFileAssociation "ttffile" -ShellOperations @("preview","print") -Icon @("imageres.dll,-77","imageres.dll,-51")
 # ---------MS Office files---------
 OfficeFileAssoc
 # ---------RDP file (config for remote connection) ------
-CreateFileAssociation "RDP.File" -ShellOperations @("Connect","Edit","Open") -Extended @(0,0,0) -Icon @("mstscax.dll,-13417","mstsc.exe,-101","`"$($VSCodeLocation)`",0")  -ShellOpDisplayName @("","Mit MSTSC bearbeiten","Mit Visual Studio Code bearbeiten") -Command @("","","`"$($VSCodeLocation)`" `"%1`"")
+CreateFileAssociation "RDP.File" -ShellOperations @("Connect","Edit","Open") -Extended @(0,0,0) -Icon @("mstscax.dll,-13417","mstsc.exe,-101","`"$($VSCodeInfo.Path)`",0")  -ShellOpDisplayName @("","Mit MSTSC bearbeiten","Mit Visual Studio Code bearbeiten") -Command @("","","`"$($VSCodeInfo.Path)`" `"%1`"")
 # ---------PFX Certificate------
 CreateFileAssociation "pfxfile" -ShellOperations @("add","open") -Extended @(0,1) -LegacyDisable @(0,1) -Icon @("certmgr.dll,-6169","certmgr.dll,-6169") -MUIVerb @("@cryptext.dll,-6126","") -ShellDefault "add"
 # ---------INI /INF Config file------
 CreateFileAssociation @("inifile","inffile") `
     -FileAssoList @("forger2","conf","ini","inf") `
     -ShellOperations @("open","print") `
-    -Command @("`"$($VSCodeLocation)`" `"%1`"","") `
+    -Command @("`"$($VSCodeInfo.Path)`" `"%1`"","") `
     -MUIVerb @("@mshtml.dll,-2210","") `
-    -Icon @("`"$($VSCodeLocation)`",0","DDORes.dll,-2413") `
+    -Icon @("`"$($VSCodeInfo.Path)`",0","DDORes.dll,-2413") `
     -Extended @(0,1) -LegacyDisable @(0,1) `
     -DefaultIcon "imageres.dll,-69"
 # INF File Install
@@ -370,8 +315,8 @@ if(Test-Path "$($SEditLoc)") {
     CreateFileAssociation "SubtitleEdit.$($SubtitleType)" `
         -DefaultIcon "`"$($SEditLoc -replace "\SubtitleEdit.exe","\icons\$($SubtitleType).ico")`"" `
         -ShellOperations @("open","edit") -FileAssoList "$($SubtitleType)" `
-        -Icon @("`"$($SEditLoc)`",0","`"$($VSCodeLocation)`",0") `
-        -Command @("`"$($SEditLoc)`" `"%1`"","`"$($VSCodeLocation)`" `"%1`"")
+        -Icon @("`"$($SEditLoc)`",0","`"$($VSCodeInfo.Path)`",0") `
+        -Command @("`"$($SEditLoc)`" `"%1`"","`"$($VSCodeInfo.Path)`" `"%1`"")
     }
 }
 # CRDownload and !qB partially downloaded files
@@ -382,13 +327,13 @@ CreateFileAssociation "Windows.ISOFile" -ShellOperations "burn" -Icon "shell32.d
 # ____Explorer Namespaces_____
 # Most must be changed both in 64-bit and 32-bit registry to have effect
 # Change recycle bin empty icon
-SetValue -RegPath "HKCR\CLSID\{645FF040-5081-101B-9F08-00AA002F954E}\shell\empty" -Name "Icon" -Value "imageres.dll,-5305"
+CreateFileAssociation "CLSID\{645FF040-5081-101B-9F08-00AA002F954E}" -shelloperations "empty" -Icon "imageres.dll,-5305"
 # Add recycle bin to this PC
 SetValue -RegPath "HKCR\CLSID\{645FF040-5081-101B-9F08-00AA002F954E}" -Name "DescriptionID" -Type "dword" -Value 0x16
 CreateKey "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{645FF040-5081-101B-9F08-00AA002F954E}"
 # Change "Manage" icon
-SetValue -RegPath "HKCR\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}\shell\Manage" -Name "Icon" -Value "mycomput.dll,-204"
-Remove-ItemProperty -Path "Registry::HKCR\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}\shell\Manage" -Name "HasLUAShield" -ea 0
+CreateFileAssociation @("CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}","Launcher.Computer") -shelloperations "Manage" -Icon "mycomput.dll,-204" -HasLUAShield 0 
+CreateFileAssociation "Launcher.Computer" -shelloperations @("connectNetworkDrive","disconnectNetworkDrive") -Icon @("shell32.dll,-10","shell32.dll,-11")
 # ------ CONTROL PANEL ------
 # Change control panel icons
 CreateFileAssociation @("CLSID\{5399E694-6CE5-4D6C-8FCE-1D8870FDCBA0}","CLSID\{26EE0668-A00A-44D7-9371-BEB064C98683}") -DefaultIcon "Control.exe,0" -Icon @("Control.exe,0","shell32.dll,-16826") -ShellOperations @("open","open2") -MUIVerb @("@shell32.dll,-10018","@shell32.dll,-31312") -command @("control.exe","explorer.exe shell:AppsFolder\windows.immersivecontrolpanel_cw5n1h2txyewy!microsoft.windows.immersivecontrolpanel")
@@ -451,14 +396,10 @@ foreach($Arch in @("","\WOW6432Node")) { # 32-bit and 64-bit registry
         Remove-Item "Registry::HKLM\Software$($Arch)\Microsoft\Windows\CurrentVersion\Explorer\Desktop\NameSpace\$($DesktopIconsToRemove)" -Force -ea 0
     }
 }
-SetValue -RegPath "HKCR\CLSID\{59031a47-3f72-44a7-89c5-5595fe6b30ee}" -Name "Infotip" -Value "@shell32.dll,-30372"
-SetValue -RegPath "HKCR\CLSID\{f874310e-b6b7-47dc-bc84-b9e6b38f5903}" -Name "Infotip" -Value "@propsys.dll,-42249"
-# Pin Userprofile to tree
-New-ItemProperty -Path "Registry::HKCR\CLSID\{59031a47-3f72-44a7-89c5-5595fe6b30ee}" -Name "System.IsPinnedToNameSpaceTree" -Value 1 -PropertyType "4"
 # Change Quick Access icon
 CreateFileAssociation @("CLSID\{679f85cb-0220-4080-b29b-5540cc05aab6}","CLSID\{f874310e-b6b7-47dc-bc84-b9e6b38f5903}") -DefaultIcon "shell32.dll,-51380" -ShellOperations "pintohome" -Icon "shell32.dll,-322" -TypeName "@propsys.dll,-42249"
 # Change desktop icon
-CreateKey "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}\DefaultIcon" -StandardValue "DDORes.dll,-2068" # My PC
+CreateKey "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{20D04FE0-3AEA-1069-A2D8-08002B30309D}\DefaultIcon" -StandardValue "DDORes.dll,-2068" # My PC to a laptop icon
 if([System.Environment]::OSVersion.Version.Build -ge 22000) { # Windows 11
     [string]$UserFolderIcon="Shell32.dll,-279" # User profile
 }
@@ -467,11 +408,8 @@ else {
 }
 CreateKey "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{59031A47-3F72-44A7-89C5-5595FE6B30EE}\DefaultIcon" -StandardValue $UserFolderIcon
 CreateKey "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\CLSID\{F02C1A0D-BE21-4350-88B0-7367FC96EF3C}\DefaultIcon" -StandardValue "imageres.dll,-120" # Network places
-# --------------OneDrive---------------
-OneDriveRegistry
-# ________________
-# Hide unwanted drive letters
-HideDriveLetters
+OneDriveRegistry # OneDrive stuff
+HideDriveLetters # Hide unwanted drive letters
 ModifyMusicLibraryNamespace
 # Remove "3D objects" and "Desktop" from Windows Explorer namespace
 foreach($UselessNamespace in @("{0DB7E03F-FC29-4DC6-9020-FF41B59E513A}","{B4BFCC3A-DB2C-424C-B029-7FE99A87C641}")) {
@@ -502,16 +440,14 @@ foreach($TempFileCleanup in $VolCaches) {
     }
 }
 # ————————KEYBOARD TWEAKS—————————
-ChangeDefaultCalc # Use SpeedCrunch as calculator
-CreateFileAssociation "ms-people" -ShellOperations "open" -Command "$($BrowserOpenAction.Replace(" %1"," contacts.google.com"))" # Replace Microsoft People with Google Contacts
-CreateFileAssociation "Protocols\Handler\mailto" -ShellOperations "open" -Command "$($BrowserOpenAction)" # Use Google chrome to open mailto link
+ChangeDefaultCalc # Use SpeedCrunch as calculator, if installed
+UseBrowserForCertainURLs
 # Use QWERTZ German keyboard layout for Chinese IME
 [string]$CurrentKeyboardLayout=(Get-ItemProperty -LiteralPath "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Keyboard Layouts\00000804")."Layout File"
 if($CurrentKeyboardLayout -notlike "KBDGR.DLL") {
     SetValue "HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Keyboard Layouts\00000804" -Name "Layout File" -Value "KBDGR.DLL"
     BallonNotif "Computer needs to be restarted to let keyboard layout change (EN->DE) take effect"
 }
-
 # ------ System PATH Environment -----
 [string]$SysEnv=(Get-ItemProperty -LiteralPath "Registry::HKEY_LOCAL_MACHINE\SYSTEM\CurrentControlSet\Control\Session Manager\Environment").Path
 [string]$UsrEnv=(Get-ItemProperty -LiteralPath "Registry::HKEY_CURRENT_USER\Environment").Path

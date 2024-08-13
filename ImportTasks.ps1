@@ -1,3 +1,6 @@
+param(
+    [string]$Path
+)
 . "$($PSScriptRoot)\Functions\RunAsAdmin.ps1"
 RunAsAdmin "$($PSCommandPath)"
 $Tasks=(Get-ChildItem "$($PSScriptRoot)\..\Tasks\*.xml") # Do not include inactive tasks in the subfolder

@@ -1,5 +1,5 @@
+. "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
 function HideDriveLetters {
-    . "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
     . "$($PSScriptRoot)\RegistryTweaks-BasicOps.ps1"
     [string[]]$DriveLetters=(Get-PSDrive -PSProvider FileSystem).Name
     [int]$HiddenDrives=0
@@ -16,4 +16,13 @@ function HideDriveLetters {
         Remove-Item -Path "Registry::HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\{e24083fc-bbef-441f-8590-a2c92966f2bf}" -Force -Recurse -ea 0
     }
     SetValue "HKEY_LOCAL_MACHINE\Software\Microsoft\Windows\CurrentVersion\Policies\Explorer" -Name "NoDrives" -Type 4 -Value $HiddenDrives
+}
+function ChangeBitLockerIcon {
+    if([System.Environment]::OSVersion.Version.Build -ge 22000) {
+        [string]$BitLockerIcon="shell32.dll,-194"
+    }
+    else {
+        [string]$BitLockerIcon="sppcomapi.dll,-1"
+    }
+    CreateFileAssociation "Drive" -ShellOperations @("manage-bde","encrypt-bde","encrypt-bde-elev","pintohome") -Icon @($BitLockerIcon,$BitLockerIcon,$BitLockerIcon,"shell32.dll,-322") # Hard drives
 }

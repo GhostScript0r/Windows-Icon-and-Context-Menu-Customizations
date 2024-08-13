@@ -3,12 +3,16 @@ function PDFFileAsso {
     . "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
     . "$($PSScriptRoot)\CheckDefaultBrowser.ps1"
     . "$($PSScriptRoot)\CheckInstallPath.ps1"
-    [string[]]$BrowserPDFs=@("MSEdgePDF")
-    CreateFileAssociation $BrowserPDFs -ShellOperations "open" -Icon "ieframe.dll,-31065" -MUIVerb "@ieframe.dll,-21819"
-    [string[]]$DefaultBrowser=(CheckDefaultBrowser)
-    if($DefaultBrowser[0] -like "*chrome.exe*") {
+    [string[]]$BrowserPDFs=@()
+    [hashtable]$EdgeBrowser=(CheckDefaultBrowser -ForceEdgeIfAvailable)
+    if($EdgeBrowser.Path -like "*msedge.exe") {
+        $BrowserPDFs=$BrowserPDFs+@("MSEdgePDF")
+        CreateFileAssociation "MSEdgePDF" -ShellOperations "open" -Icon "$($EdgeBrowser.Icon)" -MUIVerb "@ieframe.dll,-21819" -Command "$($EdgeBrowser.OpenAction)" -DefaultIcon "$($EdgeBrowser.Path.replace('msedge.exe','msedge.dll,-129'))"
+    }
+    [hashtable]$DefaultBrowser=(CheckDefaultBrowser)
+    if($DefaultBrowser.Path -like "*chrome.exe*") {
         $BrowserPDFs = $BrowserPDFs + @("ChromePDF")
-        CreateFileAssociation "ChromePDF" -FileAssoList ".pdf" -DefaultIcon "$($env:Userprofile)\Links\Adobe Acrobat.ico" -ShellOperations @("open") -MUIVerb @("@SearchFolder.dll,-10496") -Icon @("`"$($DefaultBrowser[0])`",0") -Command @("`"$($DefaultBrowser[0])`" `"%1`"") # If Adobe Acrobat is not working: Add  before %1
+        CreateFileAssociation "ChromePDF" -FileAssoList ".pdf" -DefaultIcon "$($env:Userprofile)\Links\Adobe Acrobat.ico" -ShellOperations "open" -MUIVerb "@SearchFolder.dll,-10496" -Icon "$($DefaultBrowser.Icon)" -Command "$($DefaultBrowser.OpenAction)" # If Adobe Acrobat is not working: Add  before %1
         CreateKey "HKCR\.pdf" -StandardValue "ChromePDF"
     }
     [string]$SumatraPDFLoc=$(CheckInstallPath "SumatraPDF\sumatrapdf.exe")
@@ -29,7 +33,12 @@ function PDFFileAsso {
             [string]$SumatraICO="`"$($SumatraPDFLoc)`",-$($IconNr)"
             CreateFileAssociation "$($Key)" -DefaultIcon "$($SumatraICO)" -ShellOperations "open" -MUIVerb "@appmgr.dll,-652" -Icon "`"$($SumatraPDFLoc)`",0"
             if($Key -like "*chm") { # CHM Help File
-                CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-99" -ShellOperations @("open","open2") -MUIVerb @("@appmgr.dll,-652","@srh.dll,-1359") -Icon ("","C:\Windows\hh.exe") -Command @("","C:\Windows\hh.exe `"$1`"")
+                CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-99" -ShellOperations "open2" -MUIVerb "@srh.dll,-1359" -Icon "C:\Windows\hh.exe" -Command "C:\Windows\hh.exe `"$1`""
+            }
+            if($Key -like "*pdf") {
+                . "$($PSScriptRoot)\CheckDefaultBrowser"
+                [hashtable]$DefaultBrowser=(CheckDefaultBrowser)
+                CreateFileAssociation $Key -shelloperations "open2" -MUIVerb "$($DefaultBrowser.Text)" -Icon "$($DefaultBrowser.Icon)" -Command "$($DefaultBrowser.OpenAction)"
             }
             if(Test-Path "Registry::HKCR\$($Key)\shell\print") {
                 CreateFileAssociation "$($Key)" -ShellOperations "print" -LegacyDisable 1 -Icon "ddores.dll,-2414"
@@ -39,7 +48,8 @@ function PDFFileAsso {
                 [string]$KeyWithPrint="$($Key)"
             }
         }
-        CreateFileAssociation $BrowserPDFs -ShellOperations @("open2") -Icon @("`"$($SumatraPDFLoc)`",0") -ShellOpDisplayName @("Mit SumatraPDF lesen") -Command @("`"$($SumatraPDFLoc)`" `"%1`"") #"ddores.dll,-2414"
+        CreateFileAssociation "Applications\SumatraPDF.exe" -shelloperations "open" -Icon "`"$($SumatraPDFLoc)`",0" -ShellOpDisplayName "Mit SumatraPDF lesen" -Command "`"$($SumatraPDFLoc)`" `"%1`""
+        CreateFileAssociation $BrowserPDFs -ShellOperations "open2" -Icon "`"$($SumatraPDFLoc)`",0" -ShellOpDisplayName "Mit SumatraPDF lesen" -Command "`"$($SumatraPDFLoc)`" `"%1`"" #"ddores.dll,-2414"
         Copy-Item -Path "Registry::HKCR\$($Key)\shell\open\command" -Destination "Registry::HKCR\MSEdgePDF\shell\open2" -Force
         foreach($PrintAction in @("print","printto")) {
             Copy-Item -Path "Registry::HKCR\$($KeyWithPrint)\shell\$($PrintAction)" -Destination "Registry::HKCR\MSEdgePDF\shell" -Force -Recurse -ea 0

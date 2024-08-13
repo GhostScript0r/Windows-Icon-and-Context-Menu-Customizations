@@ -1,4 +1,7 @@
 # Get admin privilege
+param(
+	[switch]$SkipWinGet
+)
 . "$($PSScriptRoot)\Functions\RunAsAdmin.ps1"
 . "$($PSScriptRoot)\Functions\GitHubReleaseDownload.ps1"
 [version]$CurrentBuildVer=[System.Environment]::OSVersion.Version
@@ -71,7 +74,9 @@ for($i=0;$i -lt $NirSoftUtilities.count;$i++) {
 if(-not (Test-Path "$($CPDF)")) {
 	Invoke-WebRequest "https://github.com/coherentgraphics/cpdf-binaries/blob/master/Windows64bit/cpdf.exe" -Outfile "$($CPDF)"
 }
-exit
+if($SkipWinGet) {
+	exit
+}
 # ____________________________
 # Install programs with WinGet
 # Check in Winget is installed
@@ -133,7 +138,7 @@ $listofprograms=$listofprograms+@(`
 "7zip.7zip",` #"PeaZip",`
 "OBSProject.OBSStudio",`
 "Datronicsoft.SpacedeskDriver.Server",`
-"Google.Chrome","Google.ChromeRemoteDesktopHost",` #"TeamViewer.TeamViewer",`
+"Google.ChromeRemoteDesktopHost",` #"TeamViewer.TeamViewer",` "Google.Chrome",
 "Governikus.Ausweisapp",`
 
 # Gaming renderer
@@ -152,20 +157,20 @@ $listofprograms=$listofprograms+@(`
 
 # Image processing
 # "ImageMagick.ImageMagick","ArtifexSoftware.GhostScript",`
-"GIMP.GIMP",`
-"Rainmeter.Rainmeter",`
-"VideoLAN.VLC",` # "KDE.Kdenlive",`
+"GIMP.GIMP",
+"Rainmeter.Rainmeter",
+"VideoLAN.VLC","GyanD.FFMPEG", # "KDE.Kdenlive",`
 # "Workrave.Workrave",`
-"BotProductions.IconViewer",`
+"BotProductions.IconViewer",
 
 # Penetration testing and digital forensics tools
-"WiresharkFoundation.Wireshark","Insecure.Npcap",`
+"WiresharkFoundation.Wireshark","Insecure.Npcap",
 
 # Games launcher
 "EpicGames.EpicGamesLauncher",
 
 # Lenovo Legion toolkit
-"BartoszCichecki.LenovoLegionToolkit",`
+"BartoszCichecki.LenovoLegionToolkit",
 
 # Office app
 "ONLYOFFICE.DesktopEditors"` # "OneNote"

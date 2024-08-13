@@ -45,7 +45,7 @@ function CheckInstallPath {
 }
 
 function FindVSCodeInstallPath {
-    [OutputType([string[]])]
+    [OutputType([hashtable])]
     [string[]]$VSCodeVersion=@("Microsoft VS Code\Code.exe","Microsoft VS Code Insiders\Code - Insiders.exe")
     for ($i=0;$i -lt $VScodeVersion.count;$i++) {
         [string]$VSCodeLocation=(CheckInstallPath "$($VSCodeVersion[$i])")
@@ -58,5 +58,10 @@ function FindVSCodeInstallPath {
             break
         }
     }
-    return @($VSCodeLocation,$VSCodeIconsLoc,$VSCodeVerHKCR)
+    if(Test-Path "$($VSCodeLocation)") {
+        return @{Path=$VSCodeLocation;Icon=$VSCodeIconsLoc;Registry=$VSCodeVerHKCR}
+    }
+    else {
+        return @{}
+    }
 }

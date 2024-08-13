@@ -19,7 +19,9 @@ function CreateFileAssociation {
         [bool[]]$LegacyDisable=@(),
         [bool[]]$HasLUAShield=@(),
         [string[]]$CommandId=@(),
-        [string[]]$DelegateExecute=@()
+        [string[]]$DelegateExecute=@(),
+        [switch]$IsURLProtocol,
+        [string]$URL=""
     )
     Write-Host "Creating shell actions for $($HKCRList[0]) type"
     $PathList=[string[]]::new($HKCRList.Length)
@@ -27,6 +29,14 @@ function CreateFileAssociation {
         $PathList[$i]=$(CorrectPath $HKCRList[$i] -AddHKCR) 
     }
     foreach($RegPath in $PathList) {
+        if($IsURLProtocol) {
+            SetValue "$($RegPath)" -Name "URL Protocol" -Value " "
+            if($URL.length -eq 0) {
+                $URL=(Split-Path $RegPath -leaf)
+            }
+            CreateKey "$($RegPath)" -StandardValue "URL:$($URL)"
+            SetValue "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\Shell\Associations\UrlAssociations\$($URL)\UserChoice" -Name "ProgId" -Value $URL
+        }
         if($DefaultIcon.length -gt 0) {
             CreateKey "$($RegPath)\DefaultIcon" -StandardValue "$($DefaultIcon)"
         }

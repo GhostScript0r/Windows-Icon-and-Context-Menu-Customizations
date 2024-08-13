@@ -104,7 +104,7 @@ function UpdateStorageInfo {
                         elseif($DriveName -like "DropBox*") {
                             $TotalSpace = "2 GB"
                         }
-                        elseif($DriveName -like "Box*") {
+                        elseif(($DriveName -like "Box*") -or ($DriveName -like "Koofr*")) {
                             $TotalSpace = "10 GB"
                         }
                         elseif($DriveName -like "Google Drive*") {
