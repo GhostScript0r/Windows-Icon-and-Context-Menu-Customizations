@@ -80,6 +80,9 @@ function UpdateStorageInfo {
                         $DriveInfo=(Get-CimInstance -ClassName Win32_LogicalDisk | Where-Object {$_.DeviceID -eq "$($DriveLetter):"})
                         [string]$UsedSpace=ReadableFileSize($DriveInfo.Size-$DriveInfo.FreeSpace)
                         [string]$TotalSpace="$($DriveInfo.Size/1GB) GB"
+                        if($TotalSpace -eq "0 GB") { # Drive offline
+                            $UsedSpace="OFFLINE"
+                        }
                     }
                     elseif(Test-Path "$($env:Userprofile)\$($DriveName -creplace ' ','_')") { # Rclone drive
                         $OneNoteSize=0GB
@@ -125,12 +128,12 @@ function UpdateStorageInfo {
                         $TotalSpace="0 GB"
                     }
                     [string]$StorageInformation="$($UsedSpace)"
-                    if($UsedSpace -notlike "keine Verbindung") {
+                    if(($UsedSpace -notlike "OFFLINE") -and ($TotalSpace -ne "0 GB")) {
                        $StorageInformation=$StorageInformation + " von $($TotalSpace) belegt" 
                     }
                 }
                 else {
-                    [string]$StorageInformation="keine Verbindung"
+                    [string]$StorageInformation="OFFLINE"
                     # Kill all rclone.exe commands to prevent Windows Explorer from freezing.
                 }
                 CreateKey "HKCR\CLSID\$($Drive)" -StandardValue "$($DriveName) ($($StorageInformation))"

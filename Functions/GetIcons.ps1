@@ -114,7 +114,7 @@ function GetDistroIcon {
         if(-not (Test-Path "$($AppDataDir)\$($DLLIconName).png")) {
             Write-Host "Extracting hard drive icon from imageres.dll" -ForegroundColor Yellow
             . "$($ZipCommand)" e -y "$($IconPNGSource)" -o"$($AppDataDir)" .rsrc/ICON/$DLLIconNr
-            Move-Item "$($AppDataDir)\$($DLLIconNr)" -Destination "$($AppDataDir)\$($DLLIconName).png" -Force # Need to use Move-Item instead of Rename-Item to force overwrite existing file.
+            Move-Item "$($AppDataDir)\$($DLLIconNr)" -Destination "$($AppDataDir)\$($DLLIconName).png" -Force # Need to use Move-Item instead of Rename-Item to force overwrite of existing file.
         }
     }
     # $wc = New-Object System.Net.WebClient

@@ -93,16 +93,16 @@ function WriteWSLRegistry {
             [string]$XRDPStartCommand="mstsc.exe /v:localhost:$($PortMentionedInXRDP) /f"
             if($PortMentionedInXRDP.length -gt 0) {
                 if(Test-Path "C:\Program Files\WSL\msrdc.exe") {
-                    [string]$XRDPIcon="C:\Program Files\WSL\msrdc.exe"
+                    [string]$XRDPIcon="`"C:\Program Files\WSL\msrdc.exe`",-101"
                 }
                 else {
                     [string]$XRDPIcon="mstscax.dll,-13417"
                 }
-                [string]$XRDPCommand="cmd /c wsl -d $($DistroNames[$i]) bash -c `"sudo systemctl start xrdp | cat`" && start `"`" $($XRDPStartCommand) && exit"
+                [string]$XRDPCommand="cmd /c wsl -d $($DistroNames[$i].replace(' ','-')) bash -c `"sudo systemctl start xrdp | cat`" && start `"`" $($XRDPStartCommand) && exit"
             }
         }
         SetValue "HKCR\CLSID\$($WSLFolderCLSIDs[$i])\shell\Shutdown" -Name "Position" -Value "Bottom"
-        CreateFileAssociation "CLSID\$($WSLFolderCLSIDs[$i])" -ShellOperations @("WSL","XRDPConnect","Shutdown") -Icon @("$($WSLCtxtMenuIcon)",$XRDPIcon,"shell32.dll,-28") -Command @("$($WSLMenuCommand)","$($XRDPCommand)","wsl.exe -d $($DistroNames[$i].replace(' ','-')) --shutdown") -MUIVerb @("@wsl.exe,-2","","") -ShellOpDisplayName @("","$($DistroNames[$i])-Desktop starten (XRDP)","$($DistroNames[$i]) herunterfahren") # -LegacyDisable @($false,!($XRDPInstalled),$false)
+        CreateFileAssociation "CLSID\$($WSLFolderCLSIDs[$i])" -ShellOperations @("WSL","XRDPConnect","Shutdown") -Icon @("$($WSLCtxtMenuIcon)",$XRDPIcon,"shell32.dll,-28") -Command @("$($WSLMenuCommand)","$($XRDPCommand)","cmd /c wsl -d $($DistroNames[$i].replace(' ','-')) --shutdown") -MUIVerb @("@wsl.exe,-2","","") -ShellOpDisplayName @("","$($DistroNames[$i])-Desktop starten (XRDP)","$($DistroNames[$i]) herunterfahren") # -LegacyDisable @($false,!($XRDPInstalled),$false)
         # __________ Create context menu entry _____________
         [string]$WSLCtxtMenuEntry="WSL$($i)"
         if($i -eq 0) {

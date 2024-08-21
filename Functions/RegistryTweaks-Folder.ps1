@@ -6,11 +6,14 @@ function FolderContextMenu {
         return
     }
     [string]$QTTabBarPath="C:\Program Files\QTTabBar\Tools\QTPopup.exe"
+    [string[]]$QTTabBarContextMenuEntries=(Split-Path (Get-ChildItem "Registry::HKCR\Folder\shell").Name -Leaf | Where-Object {$_ -like "QTTabBar.*"})
     if(!(Test-Path "$QTTabBarPath")) {
         Write-Host "QTTabBar not installed." -ForegroundColor Red -BackgroundColor White
+        foreach($Entry in $QTTabBarContextMenuEntries) {
+            Remove-Item "Registry::HKCR\Folder\shell\$($Entry)" -Force -Recurse -ea 0
+        }
         return
     }
-    [string[]]$QTTabBarContextMenuEntries=(Split-Path (Get-ChildItem "Registry::HKCR\Folder\shell").Name -Leaf | Where-Object {$_ -like "QTTabBar.*"})
     [string]$FolderDefaultOps="open"
     foreach($Entry in $QTTabBarContextMenuEntries) {
         Write-Host "$Entry" -ForegroundColor Cyan

@@ -9,7 +9,8 @@ function GitHubReleaseDownload {
         [switch]$IsZIP,
         [string]$InstallationName,
         [string]$InstallPath="",
-        [string]$Extension=".exe"
+        [string]$Extension=".exe",
+        [switch]$NoUpdate
     )
     $response = Invoke-WebRequest -Uri "https://api.github.com/repos/$($RepoName)/releases/latest"
     $JsonObj = ConvertFrom-Json $response.content
@@ -83,6 +84,9 @@ function GitHubReleaseDownload {
         if($InstalledVersion -ge $GitHubVersion) {
             Write-Host "The latest version is already installed.`n" -ForegroundColor Green
             return # No need for further downloading
+        }
+        elseif($NoUpdate) {
+            Write-Host "Update checking skipped, as this program can auto update itself."
         }
         else {
             Write-Host "A newer version is available:" -ForegroundColor Yellow -NoNewLine

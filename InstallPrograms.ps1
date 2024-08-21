@@ -42,12 +42,16 @@ if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem
 # msiexec.exe /i "$($env:TEMP)\GitHub.msi" /quiet 
 # __________________________
 # Install programs from GitHub
+if($CurrentBuildVer.Build -lt 20000) {
+	GitHubReleaseDownload "namazso/SecureUxTheme" -Extension ".exe" -Arch "Tool" -OtherStringsInFileName "ThemeTool" -DownloadOnly
+	GitHubReleaseDownload "Maplespe/DWMBlurGlass" -IsZIP -InstallPath "C:\Program Files\BlurGlass"
+}
 GitHubReleaseDownload "kovidgoyal/calibre" -Arch "64bit" -Extension ".msi" -OtherStringsInFileName ".msi" -InstallPath "C:\Program Files" -InstallationName "calibre 64bit"
 GitHubReleaseDownload "jonaskohl/CapsLockIndicator" -Arch "CLI" -Extension ".exe" -DownloadOnly
 GitHubReleaseDownload "benbuck/rbtray" -OtherStringsInFileName ".zip" -IsZIP
 GitHubReleaseDownload "NationalSecurityAgency/ghidra" -Arch "PUBLIC" -OtherStringsInFileName ".zip" -IsZIP
 GitHubReleaseDownload "rclone/rclone" -Arch "amd64" -OtherStringsInFileName "windows" -IsZIP
-GitHubReleaseDownload "syncthing/syncthing" -Arch "amd64" -OtherStringsInFileName "windows" -IsZIP
+GitHubReleaseDownload "syncthing/syncthing" -Arch "amd64" -OtherStringsInFileName "windows" -IsZIP -NoUpdate
 GitHubReleaseDownload "Genymobile/scrcpy" -Arch "win64" -IsZIP -InstallPath "$($env:LOCALAPPDATA)\Microsoft\WindowsApps"
 # _________________________
 # Download NirSoft programs
@@ -72,10 +76,21 @@ for($i=0;$i -lt $NirSoftUtilities.count;$i++) {
 # Download Coherent PDF
 [string]$CPDF="$($env:LOCALAPPDATA)\Microsoft\WindowsApps\cpdf.exe"
 if(-not (Test-Path "$($CPDF)")) {
-	Invoke-WebRequest "https://github.com/coherentgraphics/cpdf-binaries/blob/master/Windows64bit/cpdf.exe" -Outfile "$($CPDF)"
+	Invoke-WebRequest "https://github.com/coherentgraphics/cpdf-binaries/blob/master/Windows64bit/cpdf.exe?raw=true" -Outfile "$($CPDF)"
 }
 if($SkipWinGet) {
 	exit
+}
+# ____________________________
+# Download the cute Oneko
+[string]$OnekoProgram="$($env:LOCALAPPDATA)\Programs\Oneko.exe"
+if(-not (Test-Path "$($OnekoProgram)")) {
+	Invoke-WebRequest "https://github.com/tajas20006/neko2020/blob/master/neko2020.exe?raw=true" -OutFile "$($OnekoProgram)"
+}
+[string]$OnekoConfig="$($env:USERPROFILE)\.config\neko2020\config.yml"
+if(-not (Test-Path "$($OnekoConfig)")) {
+	New-Item -ItemType Directory -Path "$(Split-Path $OnekoConfig)" -ea 0
+	Invoke-WebRequest "https://github.com/tajas20006/neko2020/blob/master/config/default_config.yml?raw=true" -OutFile "$($OnekoConfig)"
 }
 # ____________________________
 # Install programs with WinGet
@@ -126,54 +141,61 @@ $listofprograms=$listofprograms+@(`
 
 # Cloud Drive Programs
 "Box.Box" #,"Google.Drive","pCloudAG.pCloudDrive","Dropbox.Dropbox",` #"Microsoft.OneDrive",
-"WinFsp.WinFsp",` # WinFSP needed for Rclone mount "Rclone.Rclone",
+"WinFsp.WinFsp" # WinFSP needed for Rclone mount "Rclone.Rclone",
 
 # MSSQL
-"Microsoft.SQLServerManagementStudio",`
+"Microsoft.SQLServerManagementStudio"
 
 # Dev kit
 # "Docker.DockerDesktop",`
-"Git.Git","OpenJS.NodeJS",`
+"Git.Git"
+"OpenJS.NodeJS"
 
-"7zip.7zip",` #"PeaZip",`
-"OBSProject.OBSStudio",`
-"Datronicsoft.SpacedeskDriver.Server",`
-"Google.ChromeRemoteDesktopHost",` #"TeamViewer.TeamViewer",` "Google.Chrome",
-"Governikus.Ausweisapp",`
+"7zip.7zip" #"PeaZip",
+"OBSProject.OBSStudio"
+"Datronicsoft.SpacedeskDriver.Server"
+"Google.ChromeRemoteDesktopHost" #"TeamViewer.TeamViewer",` "Google.Chrome",
+"Governikus.Ausweisapp"
 
 # Gaming renderer
-"Nvidia.PhysX","Microsoft.DirectX",`
+"Nvidia.PhysX","Microsoft.DirectX"
 
 # GPU Tool
-"Nvidia.CUDA",`
+"Nvidia.CUDA"
 
 # Java Runtimes
-"Oracle.JavaRuntimeEnvironment","Oracle.JDK.21","Oracle.JDK.22","Oracle.JDK.17"`
+"Oracle.JavaRuntimeEnvironment","Oracle.JDK.21","Oracle.JDK.22","Oracle.JDK.17"
 
 # Network
-"PrivateInternetAccess.PrivateInternetAccess",`
-"qBittorrent.qBittorrent",`
-"SpeedCrunch.SpeedCrunch",`
+"PrivateInternetAccess.PrivateInternetAccess"
+"qBittorrent.qBittorrent"
+"SpeedCrunch.SpeedCrunch"
 
 # Image processing
 # "ImageMagick.ImageMagick","ArtifexSoftware.GhostScript",`
-"GIMP.GIMP",
-"Rainmeter.Rainmeter",
-"VideoLAN.VLC","GyanD.FFMPEG", # "KDE.Kdenlive",`
+"GIMP.GIMP"
+"Rainmeter.Rainmeter"
+"VideoLAN.VLC","GyanD.FFMPEG" # "KDE.Kdenlive",`
 # "Workrave.Workrave",`
-"BotProductions.IconViewer",
+"BotProductions.IconViewer"
 
 # Penetration testing and digital forensics tools
-"WiresharkFoundation.Wireshark","Insecure.Npcap",
+"WiresharkFoundation.Wireshark","Insecure.Npcap"
 
 # Games launcher
-"EpicGames.EpicGamesLauncher",
+"EpicGames.EpicGamesLauncher"
 
 # Lenovo Legion toolkit
-"BartoszCichecki.LenovoLegionToolkit",
+"BartoszCichecki.LenovoLegionToolkit"
 
 # Office app
-"ONLYOFFICE.DesktopEditors"` # "OneNote"
+"ONLYOFFICE.DesktopEditors" # "OneNote"
+
+# CMD Tools
+"GNU.MidnightCommander"
+
+#To Run WSL
+# "marha.VcXsrv"
 )
 if([System.Environment]::OSVersion.Version.Build -ge 19041) {
 	$listofprograms=$listofprograms+@("Microsoft.PowerToys") # PowerToys requires Build 19041 or higher

@@ -7,12 +7,18 @@ function CheckDefaultBrowser {
     )
     [string]$BrowserPath="C:\Program Files (x86)\Microsoft\Edge\Application"
     if((Test-Path "$($BrowserPath)") -and ((Get-Item "$($BrowserPath)").Mode -like "d-----")) { # Edge installed properly and is not a symlink
+        if(Test-Path "$($BrowserPath)\msedge.exe") {
+            [string[]]$EdgeUninstaller=(Get-Item "$($BrowserPath)\*.*.*.*\Installer\setup.exe").FullName
+            foreach($Uninstaller in $EdgeUninstaller) {
+                Start-Process -FilePath "$($Uninstaller)" -ArgumentList "--uninstall --system-level --verbose-logging --force-uninstall"
+            }
+        }
         if($EdgeCoreUpdateOnly) { # No need to update the edge version, as msedge.exe is not under a path with changing folder name
             return
         }
     }
     else{
-        [string]$EdgeSymbolicLink=$BrowserPath
+        [string]$EdgeSymbolicLink="C:\Program Files (x86)\Microsoft\EdgeCore\CurrentVersion"
         [string[]]$InstalledEdgeCores=(Get-Item "C:\Program Files (x86)\Microsoft\EdgeCore\*.*.*.*\msedge.exe")
         if($InstalledEdgeCores.count -eq 0) { # MS Edge Core also Not Installed
             $BrowserPath="" # No edge exists.
