@@ -108,7 +108,7 @@ function WriteWSLRegistry {
         if($i -eq 0) {
             $WSLCtxtMenuEntry="WSL"
         }
-        CreateFileAssociation @("Directory\Background","Directory","LibraryFolder\background") -ShellOperations $WSLCtxtMenuEntry -Icon "$($WSLCtxtMenuIcon)" -ShellOpDisplayName "Hier $($DistroNames[$i])-Shell starten" -Command "$($WSLMenuCommand)"
+        CreateFileAssociation @("Directory\Background","Directory","LibraryFolder\background") -ShellOperations $WSLCtxtMenuEntry -Icon "$($WSLCtxtMenuIcon)" -ShellOpDisplayName "Hier $($DistroNames[$i])-Shell starten" -Command "$($WSLMenuCommand)" -Extended $false -MUIVerb "$($WSLCtxtMuiVerb)"
         CreateFileAssociation "Directory" -ShellOperations $WSLCtxtMenuEntry -LegacyDisable $true   
     }
     UpdateStorageInfo -WSLOnly
