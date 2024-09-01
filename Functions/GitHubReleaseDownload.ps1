@@ -9,10 +9,41 @@ function GitHubReleaseDownload {
         [switch]$IsZIP,
         [string]$InstallationName,
         [string]$InstallPath="",
-        [string]$Extension=".exe",
-        [switch]$NoUpdate
+        [string]$Extension="",
+        [switch]$NoUpdate,
+        [string]$TokenLocation="$($env:USERPROFILE)\OneDrive\Anlagen\GithubToken.txt"
     )
-    $response = Invoke-WebRequest -Uri "https://api.github.com/repos/$($RepoName)/releases/latest"
+    if($IsZIP) {
+        $Extension=".zip"
+    }
+    if($InstallPath.length -eq 0) {
+        $installpath="$($env:LOCALAPPDATA)\Programs\$([io.path]::GetFileNameWithoutExtension($RepoName))"
+    }
+    if($InstallationName.Length -eq 0) {
+        $InstallationName=(Split-Path $RepoName -leaf)
+    }
+    [string]$VersionJSONSuffix=""
+    if($InstallPath -like "$($env:LOCALAPPDATA)\Microsoft\WindowsApps") {
+        # Common folder - need to distinguish the version.json files between different apps.
+        [string]$VersionJSONSuffix="_$($InstallationName)"
+    }
+    # ___________________________________
+    # Check if the user has a Token.
+    if(Test-Path "$($TokenLocation)") {
+        [string]$Token=(Get-Content "$($TokenLocation)")
+        $base64AuthInfo = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes(":$token"))
+        $headers = @{
+            "Authorization" = "Basic $base64AuthInfo"
+            "User-Agent" = "PowerShell"
+        }
+    }
+    else {
+        $headers = @{
+            "User-Agent" = "PowerShell"
+        }
+    }
+    # Get current information from GitHub
+    $response = Invoke-WebRequest -Uri "https://api.github.com/repos/$($RepoName)/releases/latest" -Headers $headers
     $JsonObj = ConvertFrom-Json $response.content
     try {
         [Version]$GitHubVersion=($JsonObj.tag_name -replace "[^0-9.]")
@@ -22,21 +53,15 @@ function GitHubReleaseDownload {
         Write-Host "Cannot get the latest version of $($RepoName) on Github. $($JsonObj.tag_name) cannot be converted to Version type. You need to manually check if the version is new or not." -ForegroundColor Magenta
     }
     [bool]$AlreadyInstalled=$false
-    $AllLatestReleases=$JsonObj.assets | Where-Object {($_.name -like "*$($Arch)*") -and ($_.name -like "*$($OtherStringsInFileName)*")}
-    if($InstallationName.Length -eq 0) {
-        $InstallationName=(Split-Path $RepoName -leaf)
-    }
+    $AllLatestReleases=$JsonObj.assets | Where-Object {($_.name -like "*$($Arch)*") -and ($_.name -like "*$($OtherStringsInFileName)*") -and ($_.name -like "*$($Extension)")}
     if($AllLatestReleases.count -eq 0) {
-        Write-Host "Cannot find download link for the file from GitHub. Exiting..." -ForegroundColor Red
+        Write-Host "Cannot find download link for the file $(Split-Path $RepoName -leaf) from GitHub. Exiting..." -ForegroundColor Red
         return
     }
     [string]$DownloadFile="$($DownloadLoc)\$($AllLatestReleases[0].name)"
     if($DownloadOnly) {
-        if($InstallPath.length -eq 0) {
-            $installpath="$($env:LOCALAPPDATA)\Programs\$([io.path]::GetFileNameWithoutExtension($RepoName))"
-            New-Item -ItemType Directory -Path "$($InstallPath)" -ea 0
-            $DownloadFile="$($installpath)"+"\"+"$([io.path]::GetFileNameWithoutExtension($RepoName)+$Extension)"
-        }
+        New-Item -ItemType Directory -Path "$($InstallPath)" -ea 0
+        $DownloadFile="$($installpath)"+"\"+"$([io.path]::GetFileNameWithoutExtension($RepoName)+$Extension)"
         if(Test-Path "$($DownloadFile)") {
             $AlreadyInstalled=$true
         }
@@ -72,7 +97,7 @@ function GitHubReleaseDownload {
         Write-Host "$($InstallationName)" -ForegroundColor Black -BackgroundColor White -NoNewLine 
         Write-Host " is already installed on this PC." -ForegroundColor Green
         if($IsZIP -or $DownloadOnly) {
-            [Version]$InstalledVersion=(Get-Content "$($InstallPath)\version.json" -ea 0 | ConvertFrom-Json)
+            [Version]$InstalledVersion=(Get-Content "$($InstallPath)\version$($VersionJSONSuffix).json" -ea 0 | ConvertFrom-Json)
         }
         else {
             [Version]$InstalledVersion=$InstalledPackage[0].Version
@@ -120,5 +145,5 @@ function GitHubReleaseDownload {
         }
     }
     [string]$GitHubVersionString=$GitHubVersion
-    Convertto-Json -InputObject $GitHubVersionString | Out-File "$($InstallPath)\version.json"
+    Convertto-Json -InputObject $GitHubVersionString | Out-File "$($InstallPath)\version$($VersionJSONSuffix).json"
 }

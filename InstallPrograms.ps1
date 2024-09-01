@@ -1,6 +1,7 @@
 # Get admin privilege
 param(
-	[switch]$SkipWinGet
+	[switch]$SkipWinGet,
+	[switch]$UpdateOnly
 )
 . "$($PSScriptRoot)\Functions\RunAsAdmin.ps1"
 . "$($PSScriptRoot)\Functions\GitHubReleaseDownload.ps1"
@@ -43,8 +44,30 @@ if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem
 # __________________________
 # Install programs from GitHub
 if($CurrentBuildVer.Build -lt 20000) {
-	GitHubReleaseDownload "namazso/SecureUxTheme" -Extension ".exe" -Arch "Tool" -OtherStringsInFileName "ThemeTool" -DownloadOnly
-	GitHubReleaseDownload "Maplespe/DWMBlurGlass" -IsZIP -InstallPath "C:\Program Files\BlurGlass"
+	# GitHubReleaseDownload "namazso/SecureUxTheme" -Extension ".exe" -Arch "Tool" -OtherStringsInFileName "ThemeTool" -DownloadOnly
+	# GitHubReleaseDownload "Maplespe/DWMBlurGlass" -IsZIP -InstallPath "C:\Program Files\BlurGlass"
+	if(!(Test-Path "C:\Program Files\AcrylicMenus\AcrylicMenusLoader.exe")) {
+		GitHubReleaseDownload "krlvm/AcrylicMenus" -IsZIP -Arch "Menus"
+		[string]$AcrylicMenuInstallScript="$($env:LOCALAPPDATA)\Programs\AcrylicMenus\Installer\InstallAllUsers.cmd"
+		$ScriptContent=Get-Content "$($AcrylicMenuInstallScript)" | Where-Object {$_ -notlike "pause"}
+		$ScriptContent | Set-Content "$($AcrylicMenuInstallScript)"
+		Invoke-Item "$($AcrylicMenuInstallScript)"
+	}
+	if(Test-Path "C:\Program Files\AcrylicMenus\AcrylicMenusLoader.exe") {
+		Remove-Item -Path "$($env:LOCALAPPDATA)\Programs\AcrylicMenus" -Force -Recurse -ea 0
+	}
+	# GitHubReleaseDownload "ChrisAnd1998/TaskbarX" -IsZIP # It didn't work very well so I disabled it.
+}
+[string]$AcrylicExplorerDLL="C:\Program Files\AcrylicMenus\ExplorerBlurMica.dll"
+if(!(Test-Path $AcrylicExplorerDLL)) {
+	GitHubReleaseDownload "Maplespe/ExplorerBlurMica" -IsZIP -InstallPath "$(Split-Path $AcrylicExplorerDLL)"
+	foreach($DownloadFile in $(Get-ChildItem "$(Split-Path $AcrylicExplorerDLL)\Release\*.*")) {
+		Move-Item -Path "$($DownloadFile.FullName)" -Destination "$(Split-Path $AcrylicExplorerDLL)"
+	}
+	Remove-Item "$(Split-Path $AcrylicExplorerDLL)\Release"
+	$AcrylicExplorerConfig=(Get-Content "$(Split-Path $AcrylicExplorerDLL)\config.ini")
+	$AcrylicExplorerConfig -replace 'a=\d+','a=210' | Set-Content "$(Split-Path $AcrylicExplorerDLL)\config.ini"
+	regsvr32.exe "$($AcrylicExplorerDLL)" /s
 }
 GitHubReleaseDownload "kovidgoyal/calibre" -Arch "64bit" -Extension ".msi" -OtherStringsInFileName ".msi" -InstallPath "C:\Program Files" -InstallationName "calibre 64bit"
 GitHubReleaseDownload "jonaskohl/CapsLockIndicator" -Arch "CLI" -Extension ".exe" -DownloadOnly
@@ -53,6 +76,11 @@ GitHubReleaseDownload "NationalSecurityAgency/ghidra" -Arch "PUBLIC" -OtherStrin
 GitHubReleaseDownload "rclone/rclone" -Arch "amd64" -OtherStringsInFileName "windows" -IsZIP
 GitHubReleaseDownload "syncthing/syncthing" -Arch "amd64" -OtherStringsInFileName "windows" -IsZIP -NoUpdate
 GitHubReleaseDownload "Genymobile/scrcpy" -Arch "win64" -IsZIP -InstallPath "$($env:LOCALAPPDATA)\Microsoft\WindowsApps"
+GitHubReleaseDownload "yt-dlp/yt-dlp" -Arch ".exe" -Extension ".exe" -InstallPath "$($env:LOCALAPPDATA)\Microsoft\WindowsApps" -DownloadOnly
+if($UpdateOnly) {
+	winget.exe upgrade --all --disable-interactivity --accept-package-agreements --accept-source-agreements
+	exit
+}
 # _________________________
 # Download NirSoft programs
 [string[]]$NirSoftUtilities=@("iconsext","resourcesextract")
@@ -78,9 +106,6 @@ for($i=0;$i -lt $NirSoftUtilities.count;$i++) {
 if(-not (Test-Path "$($CPDF)")) {
 	Invoke-WebRequest "https://github.com/coherentgraphics/cpdf-binaries/blob/master/Windows64bit/cpdf.exe?raw=true" -Outfile "$($CPDF)"
 }
-if($SkipWinGet) {
-	exit
-}
 # ____________________________
 # Download the cute Oneko
 [string]$OnekoProgram="$($env:LOCALAPPDATA)\Programs\Oneko.exe"
@@ -91,6 +116,9 @@ if(-not (Test-Path "$($OnekoProgram)")) {
 if(-not (Test-Path "$($OnekoConfig)")) {
 	New-Item -ItemType Directory -Path "$(Split-Path $OnekoConfig)" -ea 0
 	Invoke-WebRequest "https://github.com/tajas20006/neko2020/blob/master/config/default_config.yml?raw=true" -OutFile "$($OnekoConfig)"
+}
+if($SkipWinGet) {
+	exit
 }
 # ____________________________
 # Install programs with WinGet
@@ -134,7 +162,7 @@ foreach($VCRedistVersion in @("2005","2008","2010","2012","2013","2015+")) {
 # .NET Desktop Runtimes
 for($i=5; $i -le 8; $i++)
 {
-	$listofprograms= $listofprograms + @("Microsoft.DotNet.DesktopRuntime.$($i)")
+	$listofprograms= $listofprograms + @("Microsoft.DotNet.DesktopRuntime.$($i)") + @("Microsoft.DotNet.AspNetCore.$($i)")
 }
 
 $listofprograms=$listofprograms+@(`

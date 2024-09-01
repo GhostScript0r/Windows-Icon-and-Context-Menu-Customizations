@@ -125,7 +125,7 @@ Windows Registry Editor Version 5.00
                     if(!(Test-Path "$Gdriveicon")) {
                         $GDriveIcon="C:\Program Files\Google\Drive File Stream\drive_fs.ico"
                     }
-                    MkDirCLSID $GoogleDriveCLSID -Name "Google Drive" -TargetPath "A:\Meine Ablage" -FolderType 9 -Icon "$GDriveIcon"
+                    MkDirCLSID $GoogleDriveCLSID -Name "Google Drive" -TargetPath "A:\Meine Ablage" -FolderType 9 -Icon "$GDriveIcon" -Pinned 0 
                     # Hide Drive Letter A
                     . "$($PSScriptRoot)\RegistryTweaks-Drives.ps1"
                     HideDriveLetters
