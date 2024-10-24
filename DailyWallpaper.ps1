@@ -23,10 +23,12 @@ while(!($?)) { # ERROR Level 1: No internet connection or internet connection fa
     Start-Sleep -s 300 # Repeat each 5 minutes, until internet connection is established
     [xml]$WpprXML=(GetBingXML)
 }
-[string]$WpprURL= "https://bing.com" + $WpprXML.images.image.url
-if($OpenLink) {
-    BallonNotif "$($WpprXML.images.image.copyright)" -Title "$($WpprXML.images.image.headline)" # -NotifType "Info"
+[string]$WpprInfo=$WpprXML.images.image.copyright
+if($WpprInfo.Length -eq 0) {
+    BallonNotif "XML-Format vom Bing fehlerhaft" -Title "Fehler" -NotifType "Error"
+    exit
 }
+[string]$WpprURL= "https://bing.com" + $WpprXML.images.image.url
 [string]$WpprLink=$WpprXML.images.image.copyrightlink
 if(!(Test-Path $LocalWppr)) { # Bing wallpaper not downloaded for today
     $WpprURL=$WpprURL.Substring(0,$WpprURL.IndexOf('&'))
@@ -50,8 +52,9 @@ SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Wallpapers" -N
 # SetValue "HKCU\Software\Microsoft\Windows\CurrentVersion\Policies\System" -Name "WallpaperStyle" -Type "4" -Value 0
 RUNDLL32.EXE USER32.DLL,UpdatePerUserSystemParameters 1, True # Update Wallpaper
 if($OpenLink) {
-    # Start-Sleep -s 2
+    BallonNotif "$($WpprXML.images.image.copyright)" -Title "$($WpprXML.images.image.headline)" -Icon "C:\Program Files\Windows Photo Viewer\PhotoViewer.dll" # -NotifType "Info"
     rundll32 url.dll,FileProtocolHandler $WpprLink # Run Default Browser
+
 }
 else {
     CreateFileAssociation "DesktopBackground" -ShellOperations "SearchDesktopBackground" -Icon "ieframe.dll,-31048" -Command "powershell.exe -File `"$($PSCommandPath)`" -ArgumentList `"-OpenLink`"" -ShellOpDisplayName "Hintergrundbild online suchen"

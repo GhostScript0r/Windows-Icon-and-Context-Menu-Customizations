@@ -7,16 +7,23 @@ function GetDistroIcon {
         [string]$DistroName="",
         [switch]$CloudDrive,
         [switch]$IconForLnk,
+        [switch]$IconForWSLApp,
         [switch]$Force,
         [switch]$CopyAppIconPNG,
         [string]$PNGSubLoc=""
     )
     # Creating Distro Icon (PNG to ICO) requires ImageMagick
     if(-not ((where.exe magick.exe) -like "*magick.exe")) {
-        Write-Host "Image Magick not installed. Icons cannot be created" -ForegroundColor Red
+        Write-Host "Image Magick not installed. Icons cannot be created!" -ForegroundColor Red
         return ""
     }
     [string]$AppDataDir = "$($env:USERPROFILE)\Links"
+    if($IconForWSLApp) {
+        if(!(Test-Path "$($DistroName)")) {
+            Write-Host "" -ForegroundColor Red -BackgroundColor White
+            return ""
+        }
+    }
     if($CopyAppIconPNG) {
         if($PNGSubLoc.length -eq 0) {
             Write-Error "File location is mandatory."

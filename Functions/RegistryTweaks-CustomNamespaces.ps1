@@ -21,7 +21,8 @@ function GenerateCustomNamespace {
                 }
                 . "$($PSScriptRoot)\Hashtables.ps1"
                 [hashtable]$DrivesWebsites=$(GetHashTables "CloudWebsites")
-                [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','') | Where-Object {$_ -NotIn @('Google_Drive','Google_Photos')} # 'Box' # RClone Drive Names is stored with [] in rclone.conf
+                [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','') | Where-Object {($_ -NotIn @('Google_Drive','Google_Photos')) -and ($_ -notlike "Box*")} # RClone Drive Names is stored with [] in rclone.conf
+                    # I excluded Google Drive because Google Drive is 
                 for($i=0;$i -le 99; $i++) { # This script can display max. 10 CLSID entries.
                     [string]$RcloneCLSID="{6587a16a-ce27-424b-bc3a-8f044d36fd$('{0:d2}' -f $i)}"
                     if(($i -lt $rCloneDrives.count)) {

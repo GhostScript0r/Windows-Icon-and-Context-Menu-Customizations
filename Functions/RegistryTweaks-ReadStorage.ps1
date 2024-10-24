@@ -66,7 +66,7 @@ function UpdateStorageInfo {
                 else {
                     $VHDXSize=ReadableFileSize(GetFileSizeOnDisk "$($DistroVHDPath)") # WSA VHDX is some new sort. File size ≠ occupied disk size
                 }
-                CreateKey "Registry::HKCR\CLSID\$($Drive)" -StandardValue "$($DriveName) ($($VHDXSize) belegt)"
+                CreateKey "Registry::HKCR\CLSID\$($Drive)" -StandardValue "$($DriveName) ($($VHDXSize))"
             }
             elseif($StorageType -eq 9) { # this is a network drive
                 if($WSLOnly -or $WSAOnly) {
@@ -83,6 +83,8 @@ function UpdateStorageInfo {
                         if($TotalSpace -eq "0 GB") { # Drive offline
                             $UsedSpace="OFFLINE"
                         }
+                        . "$($PSScriptRoot)\RegistryTweaks-Drives.ps1"
+                        HideDriveLetters
                     }
                     elseif(Test-Path "$($env:Userprofile)\$($DriveName -creplace ' ','_')") { # Rclone drive
                         $OneNoteSize=0GB
@@ -129,7 +131,7 @@ function UpdateStorageInfo {
                     }
                     [string]$StorageInformation="$($UsedSpace)"
                     if(($UsedSpace -notlike "OFFLINE") -and ($TotalSpace -ne "0 GB")) {
-                       $StorageInformation=$StorageInformation + " von $($TotalSpace) belegt" 
+                       $StorageInformation=$StorageInformation + " $([char]0x2215) $($TotalSpace)" 
                     }
                 }
                 else {

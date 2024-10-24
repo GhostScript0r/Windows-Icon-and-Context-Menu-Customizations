@@ -1,14 +1,21 @@
 # Get admin privilege
 param(
 	[switch]$SkipWinGet,
-	[switch]$UpdateOnly
+	[switch]$WingetUpdateOnly,
+	[switch]$GitHubCheckOnly
 )
 . "$($PSScriptRoot)\Functions\RunAsAdmin.ps1"
+RunAsAdmin "$($PSCommandPath)"
+if($UpdateOnly) {
+	winget.exe upgrade --all --disable-interactivity --accept-package-agreements --accept-source-agreements
+	exit
+}
+# ______________________________
+# Import necessary functions
 . "$($PSScriptRoot)\Functions\GitHubReleaseDownload.ps1"
 [version]$CurrentBuildVer=[System.Environment]::OSVersion.Version
-RunAsAdmin "$($PSCommandPath)"
 # ______________________________
-# Install WSL2 and Kali Linux
+# Install WSL2
 if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem-Linux").State -like "enabled") {
 	if(($CurrentBuildVer.Build -ge 19041)) {
 		if(-not (Test-Path "C:\Program Files\WSL\wsl.exe")) {
@@ -27,7 +34,8 @@ if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem
 		Write-Host "WSL2 not supported on this build."
 	}
 	. "$($PSScriptRoot)\Functions\GetDefaultWSL.ps1"
-	if((-not $(GetDefaultWSL)) -and ($CurrentBuildVer.Build -ge 18000)) { # No WSL distro installed. WSL2 supported
+	if((-not $(GetDefaultWSL)) -and ($CurrentBuildVer.Build -ge 18000)) { # WSL2 supported, yet no WSL distro installed.
+		# Will Install a Linux distro. Ubuntu or Kali Linux
 		Write-Host "Download and install Kali Linux"
 		Invoke-WebRequest "https://aka.ms/wsl-kali-linux-new" -outfile "$($env:TEMP)\Kali-Linux.zip"
 		Expand-Archive -Path "$($env:TEMP)\Kali-Linux.zip" -Destination "$($env:TEMP)\Kali\" -Force
@@ -38,7 +46,7 @@ if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem
 	}
 }
 # __________________________
-# Install GitHub desktop - it's not working very well...
+# Install GitHub desktop - it's not working very well. So it's commented out and has to be installed manually.
 # Invoke-WebRequest "https://central.github.com/deployments/desktop/desktop/latest/win32?format=msi" -OutFile "$($env:TEMP)\GitHub.msi"
 # msiexec.exe /i "$($env:TEMP)\GitHub.msi" /quiet 
 # __________________________
@@ -69,6 +77,7 @@ if(!(Test-Path $AcrylicExplorerDLL)) {
 	$AcrylicExplorerConfig -replace 'a=\d+','a=210' | Set-Content "$(Split-Path $AcrylicExplorerDLL)\config.ini"
 	regsvr32.exe "$($AcrylicExplorerDLL)" /s
 }
+# GitHub check separated from winget update and will be run in a less frequent pace (daily) because otherwise the API rate limit can be exhausted quickly.
 GitHubReleaseDownload "kovidgoyal/calibre" -Arch "64bit" -Extension ".msi" -OtherStringsInFileName ".msi" -InstallPath "C:\Program Files" -InstallationName "calibre 64bit"
 GitHubReleaseDownload "jonaskohl/CapsLockIndicator" -Arch "CLI" -Extension ".exe" -DownloadOnly
 GitHubReleaseDownload "benbuck/rbtray" -OtherStringsInFileName ".zip" -IsZIP
@@ -77,8 +86,7 @@ GitHubReleaseDownload "rclone/rclone" -Arch "amd64" -OtherStringsInFileName "win
 GitHubReleaseDownload "syncthing/syncthing" -Arch "amd64" -OtherStringsInFileName "windows" -IsZIP -NoUpdate
 GitHubReleaseDownload "Genymobile/scrcpy" -Arch "win64" -IsZIP -InstallPath "$($env:LOCALAPPDATA)\Microsoft\WindowsApps"
 GitHubReleaseDownload "yt-dlp/yt-dlp" -Arch ".exe" -Extension ".exe" -InstallPath "$($env:LOCALAPPDATA)\Microsoft\WindowsApps" -DownloadOnly
-if($UpdateOnly) {
-	winget.exe upgrade --all --disable-interactivity --accept-package-agreements --accept-source-agreements
+if($GitHubCheckOnly) {
 	exit
 }
 # _________________________
@@ -224,13 +232,17 @@ $listofprograms=$listofprograms+@(`
 
 #To Run WSL
 # "marha.VcXsrv"
+
+# Dev languages for android development:
+"GoLang.Go"
+"Python.Python.3.12"
 )
 if([System.Environment]::OSVersion.Version.Build -ge 19041) {
 	$listofprograms=$listofprograms+@("Microsoft.PowerToys") # PowerToys requires Build 19041 or higher
 }
-if((Get-AppxPackage "Microsoft.WindowsStore").count -eq 0) { # This is a Windows 10 LTSC without store.
-	$listofprograms+=@("Python3")
-}
+# if($true) { #(Get-AppxPackage "Microsoft.WindowsStore").count -eq 0) { 
+# 	$listofprograms+=@("Python.Python.3.12") # Python3
+# }
 foreach ($program in $listofprograms)
 {
 	Write-Host "Checking if $($program) is installed..."
@@ -238,7 +250,7 @@ foreach ($program in $listofprograms)
 	if($installstatus -NotLike "*$($program)*")
 	{
 		Write-Host "Program $($program) is not yet installed. Installing...."
-		winget install $program --source winget --accept-package-agreements --accept-source-agreements
+		winget install $program --source winget --accept-package-agreements --accept-source-agreements --scope machine # Scope machine installs stuff system wide
 	}
 	else {
 		Write-Host "Program $($program) is already installed." -ForegroundColor Green

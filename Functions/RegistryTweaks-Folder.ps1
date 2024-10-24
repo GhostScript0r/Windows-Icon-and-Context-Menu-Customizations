@@ -58,7 +58,7 @@ function DirectoryContextMenu {
     }
     CreateFileAssociation @("Directory\Background","Directory","LibraryFolder\background") `
         -ShellOperations @("cmd","VSCode","VSCodeWithAdmin","git_shell","git_gui","Powershell","PowershellWithAdmin") `
-        -ShellOpDisplayName @("","Hier VS Code starten","Hier VS Code starten (Administrator)","","","","PowerShell (Admin) hier starten") `
+        -ShellOpDisplayName @("","Hier VS Code $([char]0x00F6)ffnen","Hier VS Code als Admin $([char]0x00F6)ffnen","","","","PowerShell hier als Admin $([char]0x00F6)ffnen") `
         -Icon @("cmd.exe,0","`"$($VSCodeInfo.Path)`",0","`"$($VSCodeInfo.Path)`",0","`"C:\Program Files\Git\git-bash.exe`",0",`
             "`"C:\Program Files\Git\git-bash.exe`",0","$($PowerShellDef[1])","$($PowerShellDef[1])") `
         -Extended @(0,0,0,1,1,0,0) `
@@ -71,6 +71,9 @@ function DirectoryContextMenu {
             "",` # git-gui no need to define
             "$($PwsMenuCommand)",`
             "$($PwsUACCommand)") # No WSL entry because WSL entry was spinned off into another PS1 script
+    if(Test-Path "C:\Program Files (x86)\Common Files\Microsoft Shared\MSEnv\VSLauncher.exe") {
+        CreateFileAssociation "Directory" -ShellOperations "Anycode" -LegacyDisable 1
+    }
     Remove-Item -Path "Registry::HKCR\Directory\Background\DefaultIcon" -ea 0 # Not needed
     # Admin commands don't work in Library Folders, so disable them in Libraries
     CreateFileAssociation "LibraryFolder\background" -ShellOperations @("VSCodeWithAdmin","PowerShellWithAdmin") -LegacyDisable @(1,1) 

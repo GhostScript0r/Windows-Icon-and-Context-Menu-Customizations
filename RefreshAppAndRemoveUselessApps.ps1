@@ -82,17 +82,45 @@ if($OfficeCleanupOnly -or ((Get-AppxPackage "Microsoft.WindowsStore").count -eq 
 #Define apps that has file association used
 # [string[]]$AppsWithFileAsso=@("Microsoft.Paint", "Microsoft.WindowsTerminal", "Microsoft.WindowsTerminalPreview", "PythonSoftwareFoundation.Python.3.10")
 # Define apps that need to be removed
-[string[]]$uselessapps=@("Microsoft.WindowsAlarms",`
-	"Microsoft.Windows.Photos", "Microsoft.549981C3F5F10", "Microsoft.WindowsMaps","Microsoft.YourPhone",`
-	"Microsoft.GetHelp","Microsoft.BingNews","Microsoft.WindowsNotepad",`
-	"Microsoft.People", "Microsoft.MicrosoftStickyNotes", "Microsoft.MicrosoftOfficeHub",` #"Microsoft.Office.OneNote", 
-	"Microsoft.Microsoft3DViewer","Microsoft.MicrosoftSolitaireCollection",`
-	"Microsoft.MixedReality.Portal", "Microsoft.XboxApp", "Microsoft.WindowsCalculator", "Microsoft.SkypeApp",`
-	"Microsoft.MSPaint", "Microsoft.BingWeather", "Microsoft.Getstarted", "Microsoft.WindowsSoundRecorder", "Microsoft.Todos",`
-	"Microsoft.PowerAutomateDesktop", "Microsoft.GamingApp", "Microsoft.XboxIdentityProvider", "Microsoft.WindowsFeedbackHub",`
-	"AdvancedMicroDevicesInc-2.AMDLink","Microsoft.XboxGamingOverlay",`
-	"Clipchamp.Clipchamp", "MicrosoftCorporationII.MicrosoftFamily", "MicrosoftCorporationII.QuickAssist", "MicrosoftTeams",`
-	"AdvancedMicroDevicesInc-2.AMDRadeonSoftware", "microsoft.windowscommunicationsapps", "microsoft.outlookforwindows") #"Microsoft.ScreenSketch",
+[string[]]$uselessapps=@(
+	"Microsoft.WindowsAlarms"
+	"Microsoft.Windows.Photos"
+	"Microsoft.549981C3F5F10" # Cortana
+	"Microsoft.WindowsMaps"
+	"Microsoft.YourPhone"
+	"Microsoft.GetHelp"
+	"Microsoft.BingNews"
+	"Microsoft.WindowsNotepad"
+	"Microsoft.People"
+	"Microsoft.MicrosoftStickyNotes"
+	"Microsoft.MicrosoftOfficeHub"
+	"Microsoft.Office.OneNote" 
+	"Microsoft.Microsoft3DViewer"
+	"Microsoft.MicrosoftSolitaireCollection"
+	"Microsoft.MixedReality.Portal"
+	"Microsoft.XboxApp"
+	"Microsoft.WindowsCalculator"
+	"Microsoft.SkypeApp"
+	"Microsoft.MSPaint"
+	"Microsoft.BingWeather"
+	"Microsoft.Getstarted"
+	"Microsoft.WindowsSoundRecorder"
+	"Microsoft.Todos"
+	"Microsoft.PowerAutomateDesktop"
+	"Microsoft.GamingApp"
+	"Microsoft.XboxIdentityProvider"
+	"Microsoft.WindowsFeedbackHub"
+	"AdvancedMicroDevicesInc-2.AMDLink"
+	"Microsoft.XboxGamingOverlay"
+	"Clipchamp.Clipchamp"
+	"MicrosoftCorporationII.MicrosoftFamily"
+	"MicrosoftCorporationII.QuickAssist"
+	"MicrosoftTeams"
+	"AdvancedMicroDevicesInc-2.AMDRadeonSoftware"
+	"microsoft.windowscommunicationsapps"
+	"microsoft.outlookforwindows"
+	# "Microsoft.ScreenSketch"
+)
 if(((Get-AppxPackage "*WindowsTerminalPreview*") -like "*WindowsTerminalPreview*")) {
 	$uselessapps = $uselessapps + @("Microsoft.WindowsTerminal")
 }
