@@ -196,7 +196,7 @@ foreach($FileExt in (Get-ChildItem "Registry::HKCR\.*").Name) {
 CreateFileAssociation "Microsoft.System.Update.1" -ShellOperations "open" -Icon "wusa.exe,-101" -MUIVerb "@ActionCenter.dll,-2107" # Windows Update package (MSU)
 FolderContextMenu # Folders
 ChangeBitLockerIcon
-DirectoryContextMenu # --------Directories--------
+DirectoryContextMenu # Directories
 RemoveAMDContextMenu # Remove AMD Radeon context menu entries
 ImageFileAssoc # Image files
 MediaPlayerFileAssoc # Media files
@@ -277,7 +277,7 @@ if([System.Environment]::OSVersion.Version.Build -ge 22000) {
 else {
     [string]$URLIcon="urlmon.dll,-106"
 }
-CreateFileAssociation "InternetShortcut" -DefaultIcon $URLIcon -ShellOperations @("open","edit","print","printto") -Icon @("$($DefaultBrowser.Icon)","`"$($VSCodeInfo.Path)`",0","ddores.dll,-2414","ddores.dll,-2413") -MUIVerb @("@synccenter.dll,-6102",,"","","") -LegacyDisable @(0,0,1,1) -Command @("powershell.exe -Command `"`$URL= ((Get-Content '%1') -like 'URL=*') -replace 'URL=',' '; Start-Process `"$($DefaultBrowser.Path)`" `$URL'","`"$($VSCodeInfo.Path)`" `"%1`"","","")
+CreateFileAssociation "InternetShortcut" -DefaultIcon $URLIcon -ShellOperations @("open","edit","print","printto") -Icon @("$($DefaultBrowser.Icon)","`"$($VSCodeInfo.Path)`",0","ddores.dll,-2414","ddores.dll,-2413") -MUIVerb @("@synccenter.dll,-6102",,"","","") -LegacyDisable @(0,0,1,1) -Command @("powershell.exe -Command `"[string]`$URL= ((Get-Content '%1') -like 'URL=*') -replace 'URL=',''; Start-Process `$URL","`"$($VSCodeInfo.Path)`" `"%1`"","","")
 # --------Google Chrome HTML (if Chrome installed)--------
 if($DefaultBrowser.Path -like "*chrome.exe*") {
     CreateFileAssociation "ChromeHTML" -DefaultIcon "$($HTMLIcon)" `

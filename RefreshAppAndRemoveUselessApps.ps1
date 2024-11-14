@@ -14,6 +14,7 @@ RunAsAdmin "$($PSCommandPath)" -Arguments $ArgumentToPass
 function ForceUninstall {
 	if($args[0].GetType().Name -like "string") {
 		# This is a useless app that need to be removed
+		Get-AppxPackage $args[0] -all | Remove-AppxPackage # First try uninstalling it locally on this account (MS store) - as some apps cannot be uninstalled via admin
 		Get-AppxPackage $args[0] -all | Remove-AppxPackage -all
 		Get-ChildItem "C:\Program Files\WindowsApps\$($args[0])*" | Remove-Item -Force -Recurse
 	}
@@ -119,7 +120,8 @@ if($OfficeCleanupOnly -or ((Get-AppxPackage "Microsoft.WindowsStore").count -eq 
 	"AdvancedMicroDevicesInc-2.AMDRadeonSoftware"
 	"microsoft.windowscommunicationsapps"
 	"microsoft.outlookforwindows"
-	# "Microsoft.ScreenSketch"
+	"Microsoft.Windows.DevHome"
+	"Microsoft.Windows.DevHomeGitHubExtension"
 )
 if(((Get-AppxPackage "*WindowsTerminalPreview*") -like "*WindowsTerminalPreview*")) {
 	$uselessapps = $uselessapps + @("Microsoft.WindowsTerminal")
