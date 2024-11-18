@@ -78,10 +78,10 @@ if(!(Test-Path $AcrylicExplorerDLL)) {
 	regsvr32.exe "$($AcrylicExplorerDLL)" /s
 }
 # GitHub check separated from winget update and will be run in a less frequent pace (daily) because otherwise the API rate limit can be exhausted quickly.
-GitHubReleaseDownload "kovidgoyal/calibre" -Arch "64bit" -Extension ".msi" -OtherStringsInFileName ".msi" -InstallPath "C:\Program Files" -InstallationName "calibre 64bit"
+# GitHubReleaseDownload "kovidgoyal/calibre" -Arch "64bit" -Extension ".msi" -OtherStringsInFileName ".msi" -InstallPath "C:\Program Files" -InstallationName "calibre 64bit"
 GitHubReleaseDownload "jonaskohl/CapsLockIndicator" -Arch "CLI" -Extension ".exe" -DownloadOnly
 GitHubReleaseDownload "benbuck/rbtray" -OtherStringsInFileName ".zip" -IsZIP
-GitHubReleaseDownload "NationalSecurityAgency/ghidra" -Arch "PUBLIC" -OtherStringsInFileName ".zip" -IsZIP
+# GitHubReleaseDownload "NationalSecurityAgency/ghidra" -Arch "PUBLIC" -OtherStringsInFileName ".zip" -IsZIP
 GitHubReleaseDownload "rclone/rclone" -Arch "amd64" -OtherStringsInFileName "windows" -IsZIP
 GitHubReleaseDownload "syncthing/syncthing" -Arch "amd64" -OtherStringsInFileName "windows" -IsZIP -NoUpdate
 GitHubReleaseDownload "Genymobile/scrcpy" -Arch "win64" -IsZIP -InstallPath "$($env:LOCALAPPDATA)\Microsoft\WindowsApps"
@@ -185,11 +185,12 @@ $listofprograms=$listofprograms+@(`
 # Dev kit
 # "Docker.DockerDesktop",`
 "Git.Git"
-"OpenJS.NodeJS"
+# "OpenJS.NodeJS"
 
+# Everyday tools
 "7zip.7zip" #"PeaZip",
 "OBSProject.OBSStudio"
-"Datronicsoft.SpacedeskDriver.Server"
+# "Datronicsoft.SpacedeskDriver.Server"
 "Google.ChromeRemoteDesktopHost" #"TeamViewer.TeamViewer",` "Google.Chrome",
 "Governikus.Ausweisapp"
 
@@ -197,7 +198,7 @@ $listofprograms=$listofprograms+@(`
 "Nvidia.PhysX","Microsoft.DirectX"
 
 # GPU Tool
-"Nvidia.CUDA"
+# "Nvidia.CUDA"
 
 # Java Runtimes
 "Oracle.JavaRuntimeEnvironment","Oracle.JDK.21","Oracle.JDK.22","Oracle.JDK.17"
@@ -216,26 +217,26 @@ $listofprograms=$listofprograms+@(`
 "BotProductions.IconViewer"
 
 # Penetration testing and digital forensics tools
-"WiresharkFoundation.Wireshark","Insecure.Npcap"
+# "WiresharkFoundation.Wireshark","Insecure.Npcap"
 
 # Games launcher
-"EpicGames.EpicGamesLauncher"
+# "EpicGames.EpicGamesLauncher"
 
 # Lenovo Legion toolkit
 "BartoszCichecki.LenovoLegionToolkit"
 
 # Office app
-"ONLYOFFICE.DesktopEditors" # "OneNote"
+# "ONLYOFFICE.DesktopEditors" # "OneNote"
 
 # CMD Tools
 "GNU.MidnightCommander"
 
-#To Run WSL
+#To Run WSL in graphics mode (not needed with WSLg)
 # "marha.VcXsrv"
 
 # Dev languages for android development:
-"GoLang.Go"
-"Python.Python.3.12"
+# "GoLang.Go"
+# "Python.Python.3.12"
 )
 if([System.Environment]::OSVersion.Version.Build -ge 19041) {
 	$listofprograms=$listofprograms+@("Microsoft.PowerToys") # PowerToys requires Build 19041 or higher

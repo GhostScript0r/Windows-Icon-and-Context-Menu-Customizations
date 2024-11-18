@@ -4,9 +4,9 @@ function WriteWSLRegistry {
     if(-not $WSLEnabled) {
         Write-Host "WSL is NOT enabled." -ForegroundColor Red -BackgroundColor Green
         for($i=0; $i -le 6; $i++) {
-            MkDirCLSID "{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC$($i)" -RemoveCLSID
+            MkDirCLSID "{B2B4A4D1-2754-4140-A2EB-9A76D9D7CDC$($i)}" -RemoveCLSID
         }
-        return # Following not needed
+        return # Following things not needed
     }
     . "$($PSScriptRoot)\GetDefaultWSL.ps1"
     . "$($PSScriptRoot)\CheckTerminal.ps1"
