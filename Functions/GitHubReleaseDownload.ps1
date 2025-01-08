@@ -81,7 +81,7 @@ function GitHubReleaseDownload {
         }
         else {
             $InstalledPackage=(Get-Package | Where-Object {$_.Name -like "$($InstallationName)" } )
-            if($InstalledPackage.count -eq 0) {
+            if(!($InstalledPackage.count -gt 0)) {
                 $InstalledPackage=(Get-AppxPackage "$($InstallationName)")
                 if(InstalledPackage.count -gt 0) {
                     $AlreadyInstalled=$true

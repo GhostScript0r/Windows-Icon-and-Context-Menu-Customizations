@@ -2,7 +2,7 @@ function OneDriveRegistry {
     . "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
     . "$($PSScriptRoot)\CheckInstallPath.ps1"
         . "$($PSScriptRoot)\RegistryTweaks-AccessControl.ps1"
-    [string]$OneDriveInstallLoc=(CheckInstallPath "Microsoft\OneDrive\OneDrive.exe")
+    [string]$OneDriveInstallLoc=(CheckInstallPath "Microsoft?OneDrive\OneDrive.exe")
     if($OneDriveInstallLoc.length -eq 0) {
         $OneDriveInstallLoc=(CheckInstallPath "Microsoft OneDrive\OneDrive.exe")
     }
@@ -22,13 +22,13 @@ function OneDriveRegistry {
         [string]$OneDriveCLSID=(Get-ItemProperty "Registry::$($OneDriveEntry.Name)").NamespaceRootId
         [string]$OneDriveFolderLoc=(Get-ItemProperty "Registry::$($OneDriveEntry.Name)").UserFolder
         if($OneDriveEntry.Name -like "*Personal") {
-            [string]$OneDriveIcon="imageres.dll,-1040" # "imageres.dll,-1040" # 1306 is my suitcase
+            [string]$OneDriveIcon="imageres.dll,-1040" # 1306 is my suitcase
         }
         elseif($OneDriveEntry.Name -like "*Business*") {
             [string]$OneDriveIcon="`"$($OneDriveInstallLoc)`",-589"
         }
         if([System.Environment]::OSVersion.Version.Build -ge 22000) { # Latest version of OneDrive supported. Otherweise let OneDrive app manage the CLSID entry
-             MkDirCLSID $OneDriveCLSID -Name "OneDrive" -Icon "$($OneDriveIcon)" -FolderType 9 -TargetPath "$($OneDriveFolderLoc)" -FolderValueFlags 0x30 # 0x30
+             MkDirCLSID $OneDriveCLSID -Name "OneDrive" -Icon "$($OneDriveIcon)" -FolderType 9 -TargetPath "$($OneDriveFolderLoc)" -FolderValueFlags 0x30
         }
         else {
             Mkdirclsid $Onedriveclsid -RemoveCLSID
@@ -39,7 +39,13 @@ function OneDriveRegistry {
             UpdateStorageInfo -NetDriveOnly
         }
         if($OneDriveEntry.Name -like "*Personal*") {
-            CreateFileAssociation "CLSID\$($OneDriveCLSID)" -shelloperations "browse" -ShellOpDisplayName "onedrive.com besuchen" -Icon "ieframe.dll,-190" -Command "rundll32 url.dll,FileProtocolHandler https://onedrive.live.com"
+            CreateFileAssociation "CLSID\$($OneDriveCLSID)" -shelloperations @("browse") ` #,"open") 
+            -ShellOpDisplayName @("onedrive.com besuchen") ` #,"") 
+            -Icon @("ieframe.dll,-190") ` # ,"imageres.dll,-1043") 
+            -Command @("rundll32 url.dll,FileProtocolHandler https://onedrive.live.com") # ,"explorer.exe `"$($env:USERPROFILE)\Onedrive`"")
+            # if([System.Environment]::OSVersion.Version.Build -ge 26100) {
+            #     CreateFileAssociation "CLSID\$($OneDriveCLSID)" -shelloperations "open" -MUIVerb "@SettingsHandlers_OneDriveBackup.dll,-108"
+            # }
             # MakeReadOnly "HKCU\Software\Classes\CLSID\$($OneDriveCLSID)" # -InclAdmin
             # CreateKey "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($OneDriveCLSID)"
             # MakeReadOnly "HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($OneDriveCLSID)"

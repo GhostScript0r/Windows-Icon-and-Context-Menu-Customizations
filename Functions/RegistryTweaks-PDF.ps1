@@ -7,13 +7,18 @@ function PDFFileAsso {
     [hashtable]$EdgeBrowser=(CheckDefaultBrowser -ForceEdgeIfAvailable)
     if($EdgeBrowser.Path -like "*msedge.exe") {
         $BrowserPDFs=$BrowserPDFs+@("MSEdgePDF")
-        CreateFileAssociation "MSEdgePDF" -ShellOperations "open" -Icon "$($EdgeBrowser.Icon)" -MUIVerb "@ieframe.dll,-21819" -Command "$($EdgeBrowser.OpenAction)" -DefaultIcon "$($EdgeBrowser.Path.replace('msedge.exe','msedge.dll,-129'))"
+        CreateFileAssociation "MSEdgePDF" -ShellOperations "open" -Icon "$($EdgeBrowser.Icon)" -MUIVerb "@ieframe.dll,-21819" -Command "$($EdgeBrowser.OpenAction)" -DefaultIcon "$($EdgeBrowser.Path.replace('msedge.exe','msedge.dll,-130'))"
     }
     [hashtable]$DefaultBrowser=(CheckDefaultBrowser)
     if($DefaultBrowser.Path -like "*chrome.exe*") {
         $BrowserPDFs = $BrowserPDFs + @("ChromePDF")
         CreateFileAssociation "ChromePDF" -FileAssoList ".pdf" -DefaultIcon "$($env:Userprofile)\Links\Adobe Acrobat.ico" -ShellOperations "open" -MUIVerb "@SearchFolder.dll,-10496" -Icon "$($DefaultBrowser.Icon)" -Command "$($DefaultBrowser.OpenAction)" # If Adobe Acrobat is not working: Add  before %1
         CreateKey "HKCR\.pdf" -StandardValue "ChromePDF"
+    }
+    if($DefaultBrowser.Path -like "*firefox.exe*") {
+        $BrowserPDFs = $BrowserPDFs + @("FirefoxPDF-308046B0AF4A39CB")
+        CreateFileAssociation "FirefoxPDF-308046B0AF4A39CB" -FileAssoList ".pdf" -ShellOperations "open" -MUIVerb "@SearchFolder.dll,-10496" -Icon "$($DefaultBrowser.Icon)" -Command "$($DefaultBrowser.OpenAction)" # If Adobe Acrobat is not working: Add  before %1
+        CreateKey "HKCR\.pdf" -StandardValue "FirefoxPDF-308046B0AF4A39CB"
     }
     [string]$SumatraPDFLoc=$(CheckInstallPath "SumatraPDF\sumatrapdf.exe")
     [bool]$SumatraPDFInstalled=$(Test-Path "$($SumatraPDFLoc)")

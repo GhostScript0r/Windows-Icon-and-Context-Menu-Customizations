@@ -2,7 +2,8 @@
 function OfficeFileAssoc {
     param()
     # Check which Office program is installed
-    [bool]$MSOfficeInstalled=(Test-Path "C:\Program Files*\Microsoft Office\root\Office16\Word.exe")
+    [string]$MSOfficeLoc="C:\Program Files\Microsoft Office\root\Office16"
+    [bool]$MSOfficeInstalled=(Test-Path "$($MSOfficeLoc)\WINWORD.exe")
     [bool]$LibreOfficeInstalled=(Test-Path "C:\Program Files\LibreOffice\program\soffice.exe")
     [bool]$OnlyOfficeInstalled=(Test-Path "C:\Program Files\ONLYOFFICE\DesktopEditors\DesktopEditors.exe")
     # File Associations when Microsoft Office is installed
@@ -10,17 +11,17 @@ function OfficeFileAssoc {
         # PPT
         [string[]]$PPTHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {(($_ -like "PowerPoint.Show*") -or ($_ -like "PowerPoint.Slide*")) -and (Test-Path "Registry::HKCR\$_\shell\edit")})
         foreach($Key in $PPTHKCR) {
-            CreateFileAssociation "$($Key)" -ShellOperations @("Edit","New","Open","OpenAsReadOnly","Print","PrintTo","Show","ViewProtected") -Icon @("","shell32.dll,-133","`"$($MSOfficeLoc)\Office16\POWERPNT.EXE`",-1300","`"$($MSOfficeLoc)\Office16\POWERPNT.EXE`",-1300","ddores.dll,-2414","ddores.dll,-2413","imageres.dll,-103","") -LegacyDisable @(1,0,0,0,0,0,0,1) -Extended @(1,0,0,0,0,0,0,1) -Command ("","","","","","`"$($MSOfficeLoc)\Office16\POWERPNT.EXE`" /pt `"%2`" `"%3`" `"%4`" `"%1`"","","")
+            CreateFileAssociation "$($Key)" -ShellOperations @("Edit","New","Open","OpenAsReadOnly","Print","PrintTo","Show","ViewProtected") -Icon @("","shell32.dll,-133","`"$($MSOfficeLoc)\POWERPNT.EXE`",-1300","`"$($MSOfficeLoc)\POWERPNT.EXE`",-1300","ddores.dll,-2414","ddores.dll,-2413","imageres.dll,-103","") -LegacyDisable @(1,0,0,0,0,0,0,1) -Extended @(1,0,0,0,0,0,0,1) -Command ("","","","","","`"$($MSOfficeLoc)\POWERPNT.EXE`" /pt `"%2`" `"%3`" `"%4`" `"%1`"","","")
         }
         # WORD
         [string[]]$DOCHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {($_ -like "Word.*Document*.*") -and (Test-Path "Registry::HKCR\$_\shell\edit")})
         foreach($Key in $DOCHKCR) {
-            CreateFileAssociation "$($Key)" -ShellOperations @("Edit","New","OnenotePrintto","Open","OpenAsReadOnly","Print","PrintTo","ViewProtected") -Icon @("","shell32.dll,-133","","`"$($MSOfficeLoc)\Office16\WINWORD.EXE`",-1","`"$($MSOfficeLoc)\Office16\WINWORD.EXE`",-1","ddores.dll,-2414","ddores.dll,-2413","") -LegacyDisable @(1,0,1,0,0,0,0,1) 
+            CreateFileAssociation "$($Key)" -ShellOperations @("Edit","New","OnenotePrintto","Open","OpenAsReadOnly","Print","PrintTo","ViewProtected") -Icon @("","shell32.dll,-133","","`"$($MSOfficeLoc)\WINWORD.EXE`",-1","`"$($MSOfficeLoc)\WINWORD.EXE`",-1","ddores.dll,-2414","ddores.dll,-2413","") -LegacyDisable @(1,0,1,0,0,0,0,1) 
         }
         # EXCEL
         [string[]]$XLSHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {($_ -like "Excel.*") -and (Test-Path "Registry::HKCR\$_\shell\print")})
         foreach($Key in $XLSHKCR) {
-            CreateFileAssociation "$($Key)" -ShellOperations @("Open","print") -Icon @("$($MSOfficeLoc)\Office16\EXCEL.EXE,-257","ddores.dll,-2414")
+            CreateFileAssociation "$($Key)" -ShellOperations @("Open","print") -Icon @("$($MSOfficeLoc)\EXCEL.EXE,-257","ddores.dll,-2414")
             foreach($OtherShellOp in @("Edit","New","OpenAsReadOnly","Printto","ViewProtected")) {
                 if(Test-Path "Registry::HKCR\$($Key)\shell\$($OtherShellOp)") {
                     [bool]$ExcelHidden=$false
@@ -31,7 +32,7 @@ function OfficeFileAssoc {
                         [string]$ExcelIcon="ddores.dll,-2413"
                     }
                     else {
-                        [string]$ExcelIcon="$($MSOfficeLoc)\Office16\EXCEL.EXE,-257"
+                        [string]$ExcelIcon="$($MSOfficeLoc)\EXCEL.EXE,-257"
                         if(@("Edit","ViewProtected") -contains $OtherShellOp) {
                             [bool]$ExcelHidden=$true
                         }
@@ -41,7 +42,7 @@ function OfficeFileAssoc {
             }
         }
         # Outlook ICS Calender
-        CreateFileAssociation "Outlook.File.ics.15" -DefaultIcon "dfrgui.exe,-137" -ShellOperations "open" -Icon "$($MSOfficeLoc)\Office16\OUTLOOK.exe,-3"
+        CreateFileAssociation "Outlook.File.ics.15" -DefaultIcon "dfrgui.exe,-137" -ShellOperations "open" -Icon "$($MSOfficeLoc)\OUTLOOK.exe,-3"
     }
     # File associations when LibreOffice is installed
     elseif($LibreOfficeInstalled) {

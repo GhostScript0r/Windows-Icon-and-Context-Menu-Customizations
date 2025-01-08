@@ -34,11 +34,11 @@ function FolderContextMenu {
     CreateKey "HKCR\Folder\shell" -StandardValue $FolderDefaultOps
     return
 }
-function DirectoryContextMenu {
+function DirectoryContextMenu { # Includes command to run powershell script
     . "$($PSScriptRoot)\RegistryTweaks-AccessControl.ps1"
     . "$($PSScriptRoot)\CheckTerminal.ps1"
     . "$($PSScriptRoot)\CheckInstallPath.ps1"
-    [string[]]$PowerShellDef=@("","powershell.exe,0") # [0]: Display Name; [1]: Icon file
+    # [string[]]$PowerShellDef=@("","powershell.exe,0") # [0]: Display Name; [1]: Icon file
     # Hide "Open in terminal" entry to unify how the menu looks.
     SetValue "HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell Extensions\Blocked" `
         -Name "{9F156763-7844-4DC4-B2B1-901F640F5155}" -EmptyValue $true # Terminal
@@ -56,21 +56,42 @@ function DirectoryContextMenu {
         [string]$PwsMenuCommand="powershell.exe -NoExit -Command Set-Location -LiteralPath `"%V`""
         [string]$PwsUACCommand="PowerShell.exe -windowstyle hidden -Command `"Start-Process powershell.exe -ArgumentList '-noexit -command Set-Location -LiteralPath `"`"%V `"`"`"' -Verb RunAs`""
     }
+    [string]$PSRunCmd="powershell.exe  `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`"" # Command to run powershell PS1 script, NOT run in folder
+    [string]$PSRunCmdAdmin="$($PSRunCmd) -Verb RunAs" # Command to run powershell PS1 script, NOT run in folder
+    [string]$PwsIcon="powershell.exe,0" # Older icon from Windows 7/Vista time: scrptadm.dll,-7 for running as normal user, powershell.exe,1 for running as admin
+    [bool]$PwsUAC_UseLUAShield=$true
+    [string]$VSCodeUACCommand="PowerShell -windowstyle hidden -Command `"Start-Process '$($VSCodeInfo.Path)' -ArgumentList '-d `"`"%V`"`"`"' -Verb RunAs`""
+    if(Test-Path "C:\Windows\System32\sudo.exe") {
+        $PwsUACCommand="sudo.exe $($PwsMenuCommand)"
+        $PSRunCmdAdmin="sudo.exe $($PSRunCmd)"
+        $PwsUACIcon="sudo.exe"
+        $PwsUAC_UseLUAShield=$false
+        $VSCodeUACCommand="sudo.exe `"$($VSCodeInfo.Path)`" -d `"%V`""
+    }
     CreateFileAssociation @("Directory\Background","Directory","LibraryFolder\background") `
         -ShellOperations @("cmd","VSCode","VSCodeWithAdmin","git_shell","git_gui","Powershell","PowershellWithAdmin") `
         -ShellOpDisplayName @("","Hier VS Code $([char]0x00F6)ffnen","Hier VS Code als Admin $([char]0x00F6)ffnen","","","","PowerShell hier als Admin $([char]0x00F6)ffnen") `
         -Icon @("cmd.exe,0","`"$($VSCodeInfo.Path)`",0","`"$($VSCodeInfo.Path)`",0","`"C:\Program Files\Git\git-bash.exe`",0",`
-            "`"C:\Program Files\Git\git-bash.exe`",0","$($PowerShellDef[1])","$($PowerShellDef[1])") `
+            "`"C:\Program Files\Git\git-bash.exe`",0","powershell.exe,0",$PwsUACIcon) `
         -Extended @(0,0,0,1,1,0,0) `
         -LegacyDisable @(1,0,0,0,0,0,0) `
-        -HasLUAShield @(0,0,1,0,0,0,1) `
+        -HasLUAShield @(0,0,1,0,0,0,$PwsUAC_UseLUAShield) `
         -MUIVerb @("","","","","","@shell32.dll,-8508","@twinui.pcshell.dll,-10929") `
         -Command @("$($CmdMenuCommand)","`"$($VSCodeInfo.Path)`" `"%v `"",`
-            "PowerShell -windowstyle hidden -Command `"Start-Process '$($VSCodeInfo.Path)' -ArgumentList '-d `"`"%V`"`"`"' -Verb RunAs`"",`
+            "$($VSCodeUACCommand)",`
             "wt.exe new-tab --title Git-Bash --tabColor #300a16 --suppressApplicationTitle `"C:\Program Files\Git\bin\bash.exe`"",`
             "",` # git-gui no need to define
             "$($PwsMenuCommand)",`
             "$($PwsUACCommand)") # No WSL entry because WSL entry was spinned off into another PS1 script
+    # ------- PS1 Script ------
+    CreateFileAssociation @("Microsoft.PowerShellScript.1") -FileAssoList @("ps1") `
+        -DefaultIcon "$($VSCodeInfo.Icon)\powershell.ico" -ShellOperations @("open","edit","runas") `
+        -Icon @("powershell.exe,0","`"$($VSCodeInfo.Path)`",0",$PwsUACIcon) `
+        -MUIVerb @("@powershell.exe,-108","","") `
+        -Command @("$($PSRunCmd)","`"$($VSCodeInfo.Path)`" `"%1`"","$($PSRunCmdAdmin)")
+    CreateFileAssociation "SystemFileAssociations\.ps1" -ShellOperations @("0","Windows.PowerShell.Run") -LegacyDisable @(1,1)
+    Remove-Item "Registry::HKCR\Microsoft.PowerShellScript.1\shell\0" -ea 0
+    # ------- In case visual studio is installed ---------
     if(Test-Path "C:\Program Files (x86)\Common Files\Microsoft Shared\MSEnv\VSLauncher.exe") {
         CreateFileAssociation "Directory" -ShellOperations "Anycode" -LegacyDisable 1
     }

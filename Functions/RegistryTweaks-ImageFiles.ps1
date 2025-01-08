@@ -4,8 +4,10 @@ function ImageFileAssoc {
     param()
     [bool]$NoPaintApp=$false
     [string]$PaintAppName="mspaint.exe"
+    [bool]$PaintAppIsUWP=$false
     # Find file location of paint app and copy it out
-    if((Get-AppxPackage Microsoft.Paint).count -gt 0) { # App version of MS Paint installed
+    if((Get-AppxPackage Microsoft.Paint).count -gt 0) { # UWP App version of MS Paint installed
+        $PaintAppIsUWP=$true
         [string]$PaintAppLocation="$($(Get-AppxPackage Microsoft.Paint).InstallLocation)\PaintApp\mspaint.exe"
         [string]$PaintIconLocation="$($env:LocalAppdata)\Packages\Microsoft.Paint_8wekyb3d8bbwe\mspaint.exe"
         if(!(Test-Path "$($PaintIconLocation)")) {
@@ -33,8 +35,13 @@ function ImageFileAssoc {
         # No GIMP installation found
         [bool]$HideGIMP=$true
     }
+    [bool]$HidePaintContextMenu=$false
+    if($NoPaintApp -or $PaintAppIsUWP) {
+        # Hide "edit" because either no paint app is installed, or paint app is the modern UWP app and available with its own context menu entry.
+        $HidePaintContextMenu=$true
+    }
     [string]$PaintEditIcon="`"$($PaintIconLocation)`",0"
-    CreateFileAssociation @("$($PaintAppHKCR)","SystemFileAssociations\image") -ShellOperations @("edit","edit2","print","printto") -Icon @("$($PaintEditIcon)","`"$($GIMPLocation)`",0","ddores.dll,-2414","ddores.dll,-2413") -ShellOpDisplayName @("","Mit GIMP bearbeiten","","") -MUIVerb @("@mshtml.dll,-2210","","@shell32.dll,-31250","@printui.dll,-14935") -Command @("$($PaintAppName) `"%1`"","`"$($GIMPLocation)`" `"%1`"","","") -LegacyDisable @($NoPaintApp,$HideGIMP,$true,$true) 
+    CreateFileAssociation @("$($PaintAppHKCR)","SystemFileAssociations\image") -ShellOperations @("edit","edit2","print","printto") -Icon @("$($PaintEditIcon)","`"$($GIMPLocation)`",0","ddores.dll,-2414","ddores.dll,-2413") -ShellOpDisplayName @("","Mit GIMP bearbeiten","","") -MUIVerb @("@mshtml.dll,-2210","","@shell32.dll,-31250","@printui.dll,-14935") -Command @("$($PaintAppName) `"%1`"","`"$($GIMPLocation)`" `"%1`"","","") -LegacyDisable @($HidePaintContextMenu,$HideGIMP,$true,$true)
     [string[]]$ImageFileExts=@("bmp","jpg","jpeg","png","016","256","ico","cur","ani","dds","tif","tiff","rri")
     SetValue "HKCR\.256" -Name "PerceivedType" -Value "image"
     foreach($ImageExt in $ImageFileExts) {

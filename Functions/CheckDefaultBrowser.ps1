@@ -17,18 +17,18 @@ function CheckDefaultBrowser {
             return
         }
     }
-    else{
+    else{ # Edge is removed. EdgeCore and EdgeWebView not known
         [string]$EdgeSymbolicLink="C:\Program Files (x86)\Microsoft\EdgeCore\CurrentVersion"
         [string[]]$InstalledEdgeCores=(Get-Item "C:\Program Files (x86)\Microsoft\EdgeCore\*.*.*.*\msedge.exe")
-        if($InstalledEdgeCores.count -eq 0) { # MS Edge Core also Not Installed
-            $BrowserPath="" # No edge exists.
+        if($InstalledEdgeCores.count -eq 0) { # MS Edge Core is also removed
+            $BrowserPath="" # No Edge exists.
             if($EdgeCoreUpdateOnly) {
                 return
             }
         }
-        else {
+        else { # EdgeCore still exists
             [version]$CurrentEdgeVersion=(Get-ItemProperty -Path "Registry::HKEY_LOCAL_MACHINE\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft EdgeWebView").Version
-            if((Test-Path "$($EdgeSymbolicLink)") -and ((Get-Item "$($EdgeSymbolicLink)").Mode -like "d----l")) {
+            if((Test-Path "$($EdgeSymbolicLink)") -and ((Get-Item "$($EdgeSymbolicLink)").Mode -like "d----l")) { # Edge is a link
                 [version]$LinkedEdgeVersion=Split-Path (Get-Item "$($EdgeSymbolicLink)" | Select-Object -ExpandProperty Target) -leaf
                 Write-Host "Currently linked Edge version is $($LinkedEdgeVersion)"
             }
@@ -43,7 +43,9 @@ function CheckDefaultBrowser {
             }
             $BrowserPath="$($EdgeSymbolicLink)\msedge.exe"
         }
-        if($EdgeCoreUpdateOnly) { return }
+        if($EdgeCoreUpdateOnly) {
+            return
+        }
     }
     [string]$BrowserOpenAction="`"$($BrowserPath)`" --single-argument %1"
     if([System.Environment]::OSVersion.Version.Build -ge 22000) {
@@ -62,18 +64,22 @@ function CheckDefaultBrowser {
     }
     if(!(($ForceEdgeIfAvailable) -and ($BrowserPath -like "*msedge.exe"))) {
         [string[]]$ChromePath=(Get-ChildItem "C:\Program Files\Google\Chrome*\Application\chrome.exe" -ErrorAction SilentlyContinue).FullName+(Get-ChildItem "$($env:LocalAppdata)\Google\Chrome*\Application\chrome.exe" -ErrorAction SilentlyContinue).FullName
+        [string]$FirefoxPath="C:\Program Files\Mozilla Firefox\firefox.exe"
         [bool]$ChromeInstalled=$ChromePath.count
         if($ChromeInstalled) {
             [string]$BrowserPath=$ChromePath[0]
-            [string]$BrowserOpenAction="`"$($BrowserPath)`" `"%1`""
-            [string]$BrowserIcon="`"$($BrowserPath)`",0"
-            [string]$OpenInBrowserText="@SearchFolder.dll-10496"
+        }
+        elseif(Test-Path $FirefoxPath) {
+            [string]$BrowserPath=$FirefoxPath
         }
         else {
             foreach($ChromeHTMLReg in @("HKCR\ChromeHTML","HKCR\Applications\chrome.exe","HKCR\ChromePDF")) {
                 Remove-Item -Path "Registry::$($ChromeHTMLReg)" -Force -Recurse -ea 0
             }
         }
+        [string]$BrowserOpenAction="`"$($BrowserPath)`" `"%1`""
+        [string]$BrowserIcon="`"$($BrowserPath)`",0"
+        [string]$OpenInBrowserText="@SearchFolder.dll-10496"
     }
     if ($BrowserPath.length -eq 0) {
         write-host "No browser installed." -ForegroundColor Red -BackgroundColor White
@@ -83,6 +89,11 @@ function CheckDefaultBrowser {
 }
 
 function EdgeCoreUpdate {
+    [string[]]$InstalledEdgeCores=(Get-Item "C:\Program Files (x86)\Microsoft\EdgeCore\*.*.*.*\msedge.exe")
+        if($InstalledEdgeCores.count -eq 0) { # MS Edge Core is also removed
+            Write-Host "Edge Core removed!"
+            return
+        }
     $response = Invoke-WebRequest -Uri "https://edgeupdates.microsoft.com/api/products"
     $json = $response.Content | ConvertFrom-Json
     Write-Host $json

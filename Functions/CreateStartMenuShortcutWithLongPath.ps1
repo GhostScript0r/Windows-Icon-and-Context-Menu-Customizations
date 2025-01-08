@@ -33,7 +33,7 @@ function CreateShortCut {
             [string]$SudoCommand=""
         }
         [string]$TargetWSL=$Target
-        $Target="C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe" 
+        $Target="powershell.exe" 
         $Argument="-Command `"wsl.exe $($SudoCommand)bash -c 'xrandr --auto && export GTK_THEME=Yaru-dark && export GTK_ICON_THEME=Flat-Remix-Blue-Dark && export XCURSOR_THEME=DMZ-White && export QT_ICON_THEME=Flat-Remix-Blue-Dark && $($TargetWSL) & sleep 1 && pgrep -l $($TargetWSL) || $($TargetWSL)'"
     }
     $WshShell = New-Object -ComObject WScript.Shell

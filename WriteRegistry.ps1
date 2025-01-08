@@ -242,10 +242,6 @@ foreach($ML_Ext in @("xml","htm","html")) {
 }
 CreateFileAssociation @("xmlfile","$($VSCodeVerHKCR).xml","xml_auto_file") -FileAssoList ".xml" -DefaultIcon "msxml3.dll,-128" -ShellOperations @("open","edit") -ShellDefault "edit" -Icon @("$($DefaultBrowser.Icon)","`"$($VSCodeInfo.Path)`",0") -MUIVerb @("$($DefaultBrowser.Text)","")-Command @("$($DefaultBrowser.OpenAction)","`"$($VSCodeInfo.Path)`" `"%1`"") -CommandId @("IE.File","") -DelegateExecute @("{17FE9752-0B5A-4665-84CD-569794602F5C}","")
 Remove-Item "Registry::HKCR\xmlfile\ShellEx\IconHandler" -ea 0
-# ------- PS1 Script ------
-CreateFileAssociation @("Microsoft.PowerShellScript.1") -FileAssoList @("ps1")  -DefaultIcon "$($VSCodeInfo.Icon)\powershell.ico" -ShellOperations @("open","edit","runas") -Icon @("scrptadm.dll,-7","`"$($VSCodeInfo.Path)`",0","C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe,1") -MUIVerb @("@`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`",-108","","") -Command @("`"C:\Windows\system32\windowspowershell\v1.0\powershell.exe`"  `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`"","`"$($VSCodeInfo.Path)`" `"%1`"","`"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe`" `"-Command`" `"if((Get-ExecutionPolicy) -ne 'AllSigned') { Set-ExecutionPolicy -Scope Process Bypass }; & '%1'`" -Verb RunAs")
-CreateFileAssociation "SystemFileAssociations\.ps1" -ShellOperations @("0","Windows.PowerShell.Run") -LegacyDisable @(1,1)
-Remove-Item "Registry::HKCR\Microsoft.PowerShellScript.1\shell\0" -ea 0
 # ------- LOG File ------
 SetValue "HKCR\.log" -Name "Content Type" -Value "text/plain"
 SetValue "HKCR\.log" -Name "PerceivedType" -Value "text"

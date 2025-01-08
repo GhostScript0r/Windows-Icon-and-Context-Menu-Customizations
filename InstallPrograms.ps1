@@ -36,13 +36,13 @@ if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem
 	. "$($PSScriptRoot)\Functions\GetDefaultWSL.ps1"
 	if((-not $(GetDefaultWSL)) -and ($CurrentBuildVer.Build -ge 18000)) { # WSL2 supported, yet no WSL distro installed.
 		# Will Install a Linux distro. Ubuntu or Kali Linux
-		Write-Host "Download and install Kali Linux"
-		Invoke-WebRequest "https://aka.ms/wsl-kali-linux-new" -outfile "$($env:TEMP)\Kali-Linux.zip"
-		Expand-Archive -Path "$($env:TEMP)\Kali-Linux.zip" -Destination "$($env:TEMP)\Kali\" -Force
-		[string]$X64Package=(Get-Item "$($env:TEMP)\Kali\DistroLauncher-Appx_*_x64.appx").FullName
-		Rename-Item -Path "$($X64Package)" -NewName "Kali_x64.zip"
-		Expand-Archive -Path "$($env:TEMP)\Kali\Kali_x64.zip" -Destination "$($env:LOCALAPPDATA)\Kali"
-		Start-Process "$($env:LOCALAPPDATA)\kali\kali.exe"
+		# Write-Host "Download and install a Linux Distro first"
+		# Invoke-WebRequest "https://aka.ms/wsl-kali-linux-new" -outfile "$($env:TEMP)\Kali-Linux.zip"
+		# Expand-Archive -Path "$($env:TEMP)\Kali-Linux.zip" -Destination "$($env:TEMP)\Kali\" -Force
+		# [string]$X64Package=(Get-Item "$($env:TEMP)\Kali\DistroLauncher-Appx_*_x64.appx").FullName
+		# Rename-Item -Path "$($X64Package)" -NewName "Kali_x64.zip"
+		# Expand-Archive -Path "$($env:TEMP)\Kali\Kali_x64.zip" -Destination "$($env:LOCALAPPDATA)\Kali"
+		# Start-Process "$($env:LOCALAPPDATA)\kali\kali.exe"
 	}
 }
 # __________________________
@@ -51,7 +51,7 @@ if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem
 # msiexec.exe /i "$($env:TEMP)\GitHub.msi" /quiet 
 # __________________________
 # Install programs from GitHub
-if($CurrentBuildVer.Build -lt 20000) {
+# if($CurrentBuildVer.Build -lt 20000) { # System is Windows 10 - Windows 11 also needs acrylic menu for legacy context menu so this "if" statement is disabled.
 	# GitHubReleaseDownload "namazso/SecureUxTheme" -Extension ".exe" -Arch "Tool" -OtherStringsInFileName "ThemeTool" -DownloadOnly
 	# GitHubReleaseDownload "Maplespe/DWMBlurGlass" -IsZIP -InstallPath "C:\Program Files\BlurGlass"
 	if(!(Test-Path "C:\Program Files\AcrylicMenus\AcrylicMenusLoader.exe")) {
@@ -65,23 +65,23 @@ if($CurrentBuildVer.Build -lt 20000) {
 		Remove-Item -Path "$($env:LOCALAPPDATA)\Programs\AcrylicMenus" -Force -Recurse -ea 0
 	}
 	# GitHubReleaseDownload "ChrisAnd1998/TaskbarX" -IsZIP # It didn't work very well so I disabled it.
-}
+# }
 [string]$AcrylicExplorerDLL="C:\Program Files\AcrylicMenus\ExplorerBlurMica.dll"
-if(!(Test-Path $AcrylicExplorerDLL)) {
+if((!(Test-Path $AcrylicExplorerDLL))) {
 	GitHubReleaseDownload "Maplespe/ExplorerBlurMica" -IsZIP -InstallPath "$(Split-Path $AcrylicExplorerDLL)"
 	foreach($DownloadFile in $(Get-ChildItem "$(Split-Path $AcrylicExplorerDLL)\Release\*.*")) {
 		Move-Item -Path "$($DownloadFile.FullName)" -Destination "$(Split-Path $AcrylicExplorerDLL)"
 	}
 	Remove-Item "$(Split-Path $AcrylicExplorerDLL)\Release"
 	$AcrylicExplorerConfig=(Get-Content "$(Split-Path $AcrylicExplorerDLL)\config.ini")
-	$AcrylicExplorerConfig -replace 'a=\d+','a=210' | Set-Content "$(Split-Path $AcrylicExplorerDLL)\config.ini"
+	$AcrylicExplorerConfig -replace 'a=\d+','a=75' | Set-Content "$(Split-Path $AcrylicExplorerDLL)\config.ini" # Reduce the transparency to make the explorer texts more readable.
 	regsvr32.exe "$($AcrylicExplorerDLL)" /s
 }
 # GitHub check separated from winget update and will be run in a less frequent pace (daily) because otherwise the API rate limit can be exhausted quickly.
-# GitHubReleaseDownload "kovidgoyal/calibre" -Arch "64bit" -Extension ".msi" -OtherStringsInFileName ".msi" -InstallPath "C:\Program Files" -InstallationName "calibre 64bit"
+GitHubReleaseDownload "kovidgoyal/calibre" -Arch "64bit" -Extension ".msi" -OtherStringsInFileName ".msi" -InstallPath "C:\Program Files" -InstallationName "calibre 64bit"
 GitHubReleaseDownload "jonaskohl/CapsLockIndicator" -Arch "CLI" -Extension ".exe" -DownloadOnly
 GitHubReleaseDownload "benbuck/rbtray" -OtherStringsInFileName ".zip" -IsZIP
-# GitHubReleaseDownload "NationalSecurityAgency/ghidra" -Arch "PUBLIC" -OtherStringsInFileName ".zip" -IsZIP
+GitHubReleaseDownload "NationalSecurityAgency/ghidra" -Arch "PUBLIC" -OtherStringsInFileName ".zip" -IsZIP
 GitHubReleaseDownload "rclone/rclone" -Arch "amd64" -OtherStringsInFileName "windows" -IsZIP
 GitHubReleaseDownload "syncthing/syncthing" -Arch "amd64" -OtherStringsInFileName "windows" -IsZIP -NoUpdate
 GitHubReleaseDownload "Genymobile/scrcpy" -Arch "win64" -IsZIP -InstallPath "$($env:LOCALAPPDATA)\Microsoft\WindowsApps"
@@ -116,15 +116,17 @@ if(-not (Test-Path "$($CPDF)")) {
 }
 # ____________________________
 # Download the cute Oneko
-[string]$OnekoProgram="$($env:LOCALAPPDATA)\Programs\Oneko.exe"
-if(-not (Test-Path "$($OnekoProgram)")) {
-	Invoke-WebRequest "https://github.com/tajas20006/neko2020/blob/master/neko2020.exe?raw=true" -OutFile "$($OnekoProgram)"
-}
-[string]$OnekoConfig="$($env:USERPROFILE)\.config\neko2020\config.yml"
-if(-not (Test-Path "$($OnekoConfig)")) {
-	New-Item -ItemType Directory -Path "$(Split-Path $OnekoConfig)" -ea 0
-	Invoke-WebRequest "https://github.com/tajas20006/neko2020/blob/master/config/default_config.yml?raw=true" -OutFile "$($OnekoConfig)"
-}
+# [string]$OnekoProgram="$($env:LOCALAPPDATA)\Programs\Oneko.exe"
+# if(-not (Test-Path "$($OnekoProgram)")) {
+# 	Invoke-WebRequest "https://github.com/tajas20006/neko2020/blob/master/neko2020.exe?raw=true" -OutFile "$($OnekoProgram)"
+# }
+# [string]$OnekoConfig="$($env:USERPROFILE)\.config\neko2020\config.yml"
+# if(-not (Test-Path "$($OnekoConfig)")) {
+# 	New-Item -ItemType Directory -Path "$(Split-Path $OnekoConfig)" -ea 0
+# 	Invoke-WebRequest "https://github.com/tajas20006/neko2020/blob/master/config/default_config.yml?raw=true" -OutFile "$($OnekoConfig)"
+# }
+# ___________________________
+# If no WinGet update needed - script ends here
 if($SkipWinGet) {
 	exit
 }
@@ -170,7 +172,7 @@ foreach($VCRedistVersion in @("2005","2008","2010","2012","2013","2015+")) {
 # .NET Desktop Runtimes
 for($i=5; $i -le 8; $i++)
 {
-	$listofprograms= $listofprograms + @("Microsoft.DotNet.DesktopRuntime.$($i)") + @("Microsoft.DotNet.AspNetCore.$($i)")
+	$listofprograms= $listofprograms + @("Microsoft.DotNet.DesktopRuntime.$($i)") # + @("Microsoft.DotNet.AspNetCore.$($i)")
 }
 
 $listofprograms=$listofprograms+@(`
@@ -184,13 +186,13 @@ $listofprograms=$listofprograms+@(`
 
 # Dev kit
 # "Docker.DockerDesktop",`
-"Git.Git"
+# "Git.Git"
 # "OpenJS.NodeJS"
 
 # Everyday tools
 "7zip.7zip" #"PeaZip",
 "OBSProject.OBSStudio"
-# "Datronicsoft.SpacedeskDriver.Server"
+"Datronicsoft.SpacedeskDriver.Server"
 "Google.ChromeRemoteDesktopHost" #"TeamViewer.TeamViewer",` "Google.Chrome",
 "Governikus.Ausweisapp"
 
@@ -201,7 +203,7 @@ $listofprograms=$listofprograms+@(`
 # "Nvidia.CUDA"
 
 # Java Runtimes
-"Oracle.JavaRuntimeEnvironment","Oracle.JDK.21","Oracle.JDK.22","Oracle.JDK.17"
+"Oracle.JavaRuntimeEnvironment", "Oracle.JDK.21","Oracle.JDK.22","Oracle.JDK.17"
 
 # Network
 "PrivateInternetAccess.PrivateInternetAccess"
@@ -211,39 +213,36 @@ $listofprograms=$listofprograms+@(`
 # Image processing
 # "ImageMagick.ImageMagick","ArtifexSoftware.GhostScript",`
 "GIMP.GIMP"
-"Rainmeter.Rainmeter"
 "VideoLAN.VLC","GyanD.FFMPEG" # "KDE.Kdenlive",`
 # "Workrave.Workrave",`
 "BotProductions.IconViewer"
 
 # Penetration testing and digital forensics tools
-# "WiresharkFoundation.Wireshark","Insecure.Npcap"
+"WiresharkFoundation.Wireshark","Insecure.Npcap"
 
 # Games launcher
-# "EpicGames.EpicGamesLauncher"
+"EpicGames.EpicGamesLauncher"
 
 # Lenovo Legion toolkit
 "BartoszCichecki.LenovoLegionToolkit"
 
-# Office app
-# "ONLYOFFICE.DesktopEditors" # "OneNote"
-
 # CMD Tools
-"GNU.MidnightCommander"
+# "GNU.MidnightCommander"
 
 #To Run WSL in graphics mode (not needed with WSLg)
 # "marha.VcXsrv"
 
 # Dev languages for android development:
 # "GoLang.Go"
-# "Python.Python.3.12"
+"Python.Python.3.12"
 )
 if([System.Environment]::OSVersion.Version.Build -ge 19041) {
 	$listofprograms=$listofprograms+@("Microsoft.PowerToys") # PowerToys requires Build 19041 or higher
 }
-# if($true) { #(Get-AppxPackage "Microsoft.WindowsStore").count -eq 0) { 
-# 	$listofprograms+=@("Python.Python.3.12") # Python3
-# }
+
+if([System.Environment]::OSVersion.Version.Build -lt 26100) {
+	$listofprograms=$listofprograms+@("Rainmeter.Rainmeter") # Rainmeter no longer works properly since Windows 11 24H2 update
+}
 foreach ($program in $listofprograms)
 {
 	Write-Host "Checking if $($program) is installed..."

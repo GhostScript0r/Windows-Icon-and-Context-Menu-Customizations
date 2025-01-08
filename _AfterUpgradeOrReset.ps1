@@ -63,7 +63,10 @@ if($LastBuildVer -ne $CurrentBuildVer) {
         # 40950262 new file explorer header design
         # 42592269,42105254 End Task from taskbar menu
         # 39710659,40268500,39880030 Windows Spotlight UI 
-        ViVeTool.exe /enable /id:37969115,38613007,40950262,42592269,42105254,39710659,40268500,39880030
+        # ViVeTool.exe /enable /id:37969115,38613007,40950262,42592269,42105254,39710659,40268500,39880030
+    }
+    if($CurrentBuildVer.Build -ge 26100) { # With Microsoft Recall
+        Dism.exe /Online /Disable-Feature /FeatureName:"Recall"​
     }
     [string]$CurrentBuildVer_Str=$CurrentBuildVer
     ConvertTo-Json -InputObject $CurrentBuildVer_Str | Out-File $LastBuildVerFile

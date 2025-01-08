@@ -31,52 +31,8 @@ if($EspeciallyAnnoyingOnly) {
 	}
 	exit
 }
-# Remove unwanted MS Office components
-# For the following scripts to work Office Deployment Tool need to be downloaded https://www.microsoft.com/en-us/download/details.aspx?id=49117 and put to location %localappdata%\Programs\Office Deployment Tool
-# Check if MS Office is installed
-[bool]$MSOfficeInstalled=$false
-foreach($ProgramFilesLoc in @("Program Files","Programe Files (x86)")) {
-    [string]$MSOfficeLoc="C:\$($ProgramFilesLoc)\Microsoft Office\root\Office16\Word.exe" # As OneNote can be installed separately without license, it's better to test if Office (license needed) is installed via word.exe
-    if(Test-Path "$($MSOfficeLoc)") {
-        $MSOfficeInstalled=$true
-        break
-    }
-}
-if($MSOfficeInstalled) {
-	[string]$CurrentOfficeVer=(Get-WmiObject win32_product | Where-Object {$_.Name -like "Office 16 Click-to-Run Licensing Component"}).Version
-	[string]$LastCheckedVer=(Get-Content "$($env:LOCALAPPDATA)\Programs\Office Deployment Tool\CurrentOfficeVer.json" | ConvertFrom-Json)
-	if($CurrentOfficeVer -like $LastCheckedVer) {
-		Write-Host "Office was not updated since last time the program was running"
-	}
-	elseif((Test-Path "$($MSOfficeLoc)\Office16\ACCESS.EXE") -or (Test-Path "$($MSOfficeLoc)\Office16\MSPUB.EXE")) { 
-		# Access and Publisher are things I definitely dont't need. If they are present, it means a cleanup is needed
-		$MSCleanupConfig=@'
-		<Configuration>
-		<Add OfficeClientEdition="64" Channel="Current">
-		  <Product ID="O365ProPlusRetail">
-			<Language ID="de-de" />
-			<ExcludeApp ID="Access" />
-			<ExcludeApp ID="Publisher" />
-			<ExcludeApp ID="OneDrive" />
-			<ExcludeApp ID="Groove" />
-			<ExcludeApp ID="Lynk" />
-			<ExcludeApp ID="OneNote" />
-			<!-- If not using Outlook UWP App comment out the next line to avoid removing Outlook -->
-			<ExcludeApp ID="Outlook" />
-		  </Product>
-		</Add>
-		<Updates Enabled="TRUE" Channel="Broad" />
-		<Display Level="None" AcceptEULA="TRUE" />
-	  </Configuration>
-'@
-		$MSCleanupConfig | Out-File "$($env:TEMP)\OfficeCleanupCfg.xml"
-		Start-Process -FilePath "$($env:LOCALAPPDATA)\Programs\Office Deployment Tool\setup.exe" -ArgumentList "/configure ""$($env:TEMP)\OfficeCleanupCfg.xml"""
-		ConvertTo-Json -InputObject $CurrentOfficeVer | Out-File "$($env:LOCALAPPDATA)\Programs\Office Deployment Tool\CurrentOfficeVer.json"
-	}
-}
-else {
-	Write-Host "MS Office is not installed at all."
-}
+. "$($PSScriptRoot)\Functions\MS-Office-Cleanup.ps1"
+MSOfficeCleanup
 if($OfficeCleanupOnly -or ((Get-AppxPackage "Microsoft.WindowsStore").count -eq 0)) {
 	exit
 }
@@ -126,9 +82,9 @@ if($OfficeCleanupOnly -or ((Get-AppxPackage "Microsoft.WindowsStore").count -eq 
 if(((Get-AppxPackage "*WindowsTerminalPreview*") -like "*WindowsTerminalPreview*")) {
 	$uselessapps = $uselessapps + @("Microsoft.WindowsTerminal")
 }
-if(Test-Path "C:\Program Files\NVIDIA Corporation\NVIDIA app\CEF\NVIDIA App.exe") {
-	$uselessapps = $uselessapps + @("NVIDIACorp.NVIDIAControlPanel")
-}
+# if(Test-Path "C:\Program Files\NVIDIA Corporation\NVIDIA app\CEF\NVIDIA App.exe") {
+# 	$uselessapps = $uselessapps + @("NVIDIACorp.NVIDIAControlPanel") # Nvidia control panel still needed by NVIDIA app
+# }
 [bool[]]$MPlayersInstalled=@((Test-Path "C:\Program Files\VideoLAN\VLC\vlc.exe"),`
 ((Get-ItemProperty -Path "Registry::HKLM\Software\Microsoft\Active Setup\Installed Components\{22d6f312-b0f6-11d0-94ab-0080c74c7e95}" -ErrorAction SilentlyContinue).isinstalled -eq 1))
 if($MPlayersInstalled -contains $true) {
