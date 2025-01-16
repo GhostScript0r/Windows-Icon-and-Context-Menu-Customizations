@@ -282,7 +282,7 @@ if($DefaultBrowser.Path -like "*chrome.exe*") {
     -Command @("`"$($DefaultBrowser.Path)`" `"%1`"","`"$($VSCodeInfo.Path)`" `"%1`"")
 }
 # ---------TTF Schriftart----------
-CreateFileAssociation "ttffile" -ShellOperations @("preview","print") -Icon @("imageres.dll,-77","imageres.dll,-51")
+CreateFileAssociation @("ttffile","otffile") -ShellOperations @("preview","print") -Icon @("imageres.dll,-77","imageres.dll,-51")
 # ---------MS Office files---------
 OfficeFileAssoc
 # ---------RDP file (config for remote connection) ------

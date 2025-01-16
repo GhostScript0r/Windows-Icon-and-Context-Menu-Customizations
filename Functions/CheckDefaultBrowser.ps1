@@ -54,7 +54,7 @@ function CheckDefaultBrowser {
     else {
         [string]$BrowserIcon="`"$($BrowserPath)`",0"
     }
-    [string]$OpenInBrowserText="@ieframe.dll,-21819"
+    [string]$OpenInBrowserText="@ieframe.dll,-21819" # Open in Edge
     if($BrowserPath -like "*msedge.exe") {
         . "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
         foreach($EdgeURL in @("http","https","microsoft-edge")) {
@@ -79,7 +79,7 @@ function CheckDefaultBrowser {
         }
         [string]$BrowserOpenAction="`"$($BrowserPath)`" `"%1`""
         [string]$BrowserIcon="`"$($BrowserPath)`",0"
-        [string]$OpenInBrowserText="@SearchFolder.dll-10496"
+        [string]$OpenInBrowserText="@SearchFolder.dll,-10496" # Im Browser öffnen
     }
     if ($BrowserPath.length -eq 0) {
         write-host "No browser installed." -ForegroundColor Red -BackgroundColor White
