@@ -66,17 +66,19 @@ if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem
 	}
 	# GitHubReleaseDownload "ChrisAnd1998/TaskbarX" -IsZIP # It didn't work very well so I disabled it.
 # }
-[string]$AcrylicExplorerDLL="C:\Program Files\AcrylicMenus\ExplorerBlurMica.dll"
-if((!(Test-Path $AcrylicExplorerDLL))) {
-	GitHubReleaseDownload "Maplespe/ExplorerBlurMica" -IsZIP -InstallPath "$(Split-Path $AcrylicExplorerDLL)"
-	foreach($DownloadFile in $(Get-ChildItem "$(Split-Path $AcrylicExplorerDLL)\Release\*.*")) {
-		Move-Item -Path "$($DownloadFile.FullName)" -Destination "$(Split-Path $AcrylicExplorerDLL)"
-	}
-	Remove-Item "$(Split-Path $AcrylicExplorerDLL)\Release"
-	$AcrylicExplorerConfig=(Get-Content "$(Split-Path $AcrylicExplorerDLL)\config.ini")
-	$AcrylicExplorerConfig -replace 'a=\d+','a=75' | Set-Content "$(Split-Path $AcrylicExplorerDLL)\config.ini" # Reduce the transparency to make the explorer texts more readable.
-	regsvr32.exe "$($AcrylicExplorerDLL)" /s
-}
+# __________________________
+# Install Acrylic Explorer (Disabled as it hampers the readibility of explorer)
+# [string]$AcrylicExplorerDLL="C:\Program Files\AcrylicMenus\ExplorerBlurMica.dll"
+# if((!(Test-Path $AcrylicExplorerDLL))) {
+# 	GitHubReleaseDownload "Maplespe/ExplorerBlurMica" -IsZIP -InstallPath "$(Split-Path $AcrylicExplorerDLL)"
+# 	foreach($DownloadFile in $(Get-ChildItem "$(Split-Path $AcrylicExplorerDLL)\Release\*.*")) {
+# 		Move-Item -Path "$($DownloadFile.FullName)" -Destination "$(Split-Path $AcrylicExplorerDLL)"
+# 	}
+# 	Remove-Item "$(Split-Path $AcrylicExplorerDLL)\Release"
+# 	$AcrylicExplorerConfig=(Get-Content "$(Split-Path $AcrylicExplorerDLL)\config.ini")
+# 	$AcrylicExplorerConfig -replace 'a=\d+','a=25' | Set-Content "$(Split-Path $AcrylicExplorerDLL)\config.ini" # Reduce the transparency to make the explorer texts more readable.
+# 	regsvr32.exe "$($AcrylicExplorerDLL)" /s
+# }
 # GitHub check separated from winget update and will be run in a less frequent pace (daily) because otherwise the API rate limit can be exhausted quickly.
 GitHubReleaseDownload "kovidgoyal/calibre" -Arch "64bit" -Extension ".msi" -OtherStringsInFileName ".msi" -InstallPath "C:\Program Files" -InstallationName "calibre 64bit"
 GitHubReleaseDownload "jonaskohl/CapsLockIndicator" -Arch "CLI" -Extension ".exe" -DownloadOnly
@@ -86,6 +88,7 @@ GitHubReleaseDownload "rclone/rclone" -Arch "amd64" -OtherStringsInFileName "win
 GitHubReleaseDownload "syncthing/syncthing" -Arch "amd64" -OtherStringsInFileName "windows" -IsZIP -NoUpdate
 GitHubReleaseDownload "Genymobile/scrcpy" -Arch "win64" -IsZIP -InstallPath "$($env:LOCALAPPDATA)\Microsoft\WindowsApps"
 GitHubReleaseDownload "yt-dlp/yt-dlp" -Arch ".exe" -Extension ".exe" -InstallPath "$($env:LOCALAPPDATA)\Microsoft\WindowsApps" -DownloadOnly
+GitHubReleaseDownload "replydev/cotp" -Arch "x86_64-win" -IsZIP -InstallPath "$($env:LOCALAPPDATA)\Microsoft\WindowsApps" -DownloadOnly
 if($GitHubCheckOnly) {
 	exit
 }

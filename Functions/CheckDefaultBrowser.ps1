@@ -1,4 +1,4 @@
-function CheckDefaultBrowser {
+function CheckDefaultBrowser { # This funtion can only check if the Browser is Chrome, Firefox or Edge. For other browsers please modify the script.
     [OutputType([hashtable])]
     param(
         [switch]$EdgeCoreUpdateOnly,
@@ -6,6 +6,7 @@ function CheckDefaultBrowser {
         # [switch]$AddEdgeCoreToBrowserOption
     )
     [string]$BrowserPath="C:\Program Files (x86)\Microsoft\Edge\Application"
+    [string[]]$HtmlExtraEntries=@("MSEdgeHTM","Applications\MSEdge.exe")
     if((Test-Path "$($BrowserPath)") -and ((Get-Item "$($BrowserPath)").Mode -like "d-----")) { # Edge installed properly and is not a symlink
         if(Test-Path "$($BrowserPath)\msedge.exe") {
             [string[]]$EdgeUninstaller=(Get-Item "$($BrowserPath)\*.*.*.*\Installer\setup.exe").FullName
@@ -20,7 +21,7 @@ function CheckDefaultBrowser {
     else{ # Edge is removed. EdgeCore and EdgeWebView not known
         [string]$EdgeSymbolicLink="C:\Program Files (x86)\Microsoft\EdgeCore\CurrentVersion"
         [string[]]$InstalledEdgeCores=(Get-Item "C:\Program Files (x86)\Microsoft\EdgeCore\*.*.*.*\msedge.exe")
-        if($InstalledEdgeCores.count -eq 0) { # MS Edge Core is also removed
+        if($InstalledEdgeCores.count -eq 0) { # MS Edge Core is also removed. No Edge at all left on this machine
             $BrowserPath="" # No Edge exists.
             if($EdgeCoreUpdateOnly) {
                 return
@@ -52,7 +53,7 @@ function CheckDefaultBrowser {
         [string]$BrowserIcon="ieframe.dll,-31065"
     }
     else {
-        [string]$BrowserIcon="`"$($BrowserPath)`",0"
+        [string]$BrowserIcon="`"$($BrowserPath)`""
     }
     [string]$OpenInBrowserText="@ieframe.dll,-21819" # Open in Edge
     if($BrowserPath -like "*msedge.exe") {
@@ -68,9 +69,13 @@ function CheckDefaultBrowser {
         [bool]$ChromeInstalled=$ChromePath.count
         if($ChromeInstalled) {
             [string]$BrowserPath=$ChromePath[0]
+            $HtmlExtraEntries=@(
+                "ChromeHTML"
+            )
         }
         elseif(Test-Path $FirefoxPath) {
             [string]$BrowserPath=$FirefoxPath
+            $HtmlExtraEntries=@("FirefoxHTML-308046B0AF4A39CB","FirefoxURL-308046B0AF4A39CB")
         }
         else {
             foreach($ChromeHTMLReg in @("HKCR\ChromeHTML","HKCR\Applications\chrome.exe","HKCR\ChromePDF")) {
@@ -85,7 +90,7 @@ function CheckDefaultBrowser {
         write-host "No browser installed." -ForegroundColor Red -BackgroundColor White
         return @{}
     }
-    return @{Path=$BrowserPath;OpenAction=$BrowserOpenAction;Icon=$BrowserIcon;Text=$OpenInBrowserText}
+    return @{Path=$BrowserPath;OpenAction=$BrowserOpenAction;Icon=$BrowserIcon;Text=$OpenInBrowserText;ExtraEntries=$HtmlExtraEntries}
 }
 
 function EdgeCoreUpdate {

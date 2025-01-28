@@ -1,13 +1,31 @@
 . "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
 function OfficeFileAssoc {
-    param()
+    [Outputtype([hashtable])]
+    param(
+        [switch]$OnlyCheckONLYOFFICE
+    )
     # Check which Office program is installed
     [string]$MSOfficeLoc="C:\Program Files\Microsoft Office\root\Office16"
     [bool]$MSOfficeInstalled=(Test-Path "$($MSOfficeLoc)\WINWORD.exe")
     [bool]$LibreOfficeInstalled=(Test-Path "C:\Program Files\LibreOffice\program\soffice.exe")
     [bool]$OnlyOfficeInstalled=(Test-Path "C:\Program Files\ONLYOFFICE\DesktopEditors\DesktopEditors.exe")
+    [hashtable]$InstalledOffice=@{
+        Office=""
+        DOC=""
+        PPT=""
+        XLS=""
+    }
+    if($OnlyCheckONLYOFFICE -and (-not $OnlyOfficeInstalled)) {
+        return $InstalledOffice
+    }
     # File Associations when Microsoft Office is installed
     if($MSOfficeInstalled) {
+        $InstalledOffice=@{
+            Office="Microsoft Office"
+            DOC="Word"
+            PPT="PowerPoint"
+            XLS="Excel"
+        }
         # PPT
         [string[]]$PPTHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {(($_ -like "PowerPoint.Show*") -or ($_ -like "PowerPoint.Slide*")) -and (Test-Path "Registry::HKCR\$_\shell\edit")})
         foreach($Key in $PPTHKCR) {
@@ -46,6 +64,12 @@ function OfficeFileAssoc {
     }
     # File associations when LibreOffice is installed
     elseif($LibreOfficeInstalled) {
+        $InstalledOffice=@{
+            Office="LibreOffice"
+            DOC="Write"
+            PPT="Impress"
+            XLS="Calc"
+        }
         [string[]]$LibreOfficeHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {$_ -like "LibreOffice.*"})
         foreach($Key in $LibreofficeHKCR) {
             $OfficeIcon=(Get-ItemProperty -LiteralPath "Registry::HKCR\$($Key)\DefaultIcon").'(default)'
@@ -63,35 +87,65 @@ function OfficeFileAssoc {
     }
     # File Associations when OnlyOffice is installed
     elseif($OnlyOfficeInstalled) {
+        $InstalledOffice=@{
+            Office="ONLYOFFICE"
+            DOC="Word Editor"
+            PPT="PPT Editor"
+            XLS="Table Editor"
+            PDF="PDF Editor"
+        }
+        if($OnlyCheckONLYOFFICE) {
+            return $InstalledOffice
+        }
         [string[]]$OnlyOfficeHKCR=([Microsoft.Win32.Registry]::ClassesRoot.GetSubKeyNames() | Where-Object {$_ -like "ASC.*"})
         foreach($Key in $OnlyofficeHKCR) {
-            $OfficeIcon=(Get-ItemProperty -LiteralPath "Registry::HKCR\$($Key)\DefaultIcon").'(default)'
-            CreateFileAssociation "$($Key)" -ShellOperations "open" -Icon "C:\Program Files\ONLYOFFICE\DesktopEditors\app.ico"
-            if(($OfficeIcon -like "*ONLYOFFICE*") -and ([System.Environment]::OSVersion.Version.Build -ge 22000)) { 
-                # ONLYOFFICE icon is sorta ugly. Wanna change them to the MS Office file icons (only included in imageres.dll after Windows 11)
+            $OfficeIcon=(Get-ItemProperty -LiteralPath "Registry::HKCR\$($Key)\DefaultIcon" -ErrorAction SilentlyContinue).'(default)'
+            if(($OfficeIcon -like "C:\Program Files\ONLYOFFICE\DesktopEditors\DesktopEditors.exe,*")) { 
                 [int]$OfficeFileIconType=($OfficeIcon -replace "[^0-9]" , '') # Get the numbers only
+                [string]$OpenIcon=""
                 Switch($OfficeFileIconType) {
+                    {$_ -in 11,7,18,19,30} { # Word
+                        $OpenIcon="C:\Program Files\ONLYOFFICE\DesktopEditors\DesktopEditors.exe,-115"
+                        # [string[]]$OfficeExtList=@(".doc",".docx","dot","odt") # -DefaultIcon "imageres.dll,-8302" 
+                    }
                     {$_ -in 24,22,10,23} { # Excel, CSV files etc.
-                        CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-8320" -FileAssoList @(".xls",".xlsx","xlsm","ods")
+                        $OpenIcon="C:\Program Files\ONLYOFFICE\DesktopEditors\DesktopEditors.exe,-116"
+                        # [string[]]$OfficeExtList=@(".xls",".xlsx","xlsm","ods") # -DefaultIcon "imageres.dll,-8320" 
                     }
                     {$_ -in 1,9,3,2,8} { # PPT
-                        CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-8312" -FileAssoList @(".ppt",".pptx")
+                        $OpenIcon="C:\Program Files\ONLYOFFICE\DesktopEditors\DesktopEditors.exe,-117"
+                        # [string[]]$OfficeExtList=@(".ppt",".pptx") # -DefaultIcon "imageres.dll,-8312" 
                     }
-                    {$_ -in 11,7,18,19} { # Word
-                        CreateFileAssociation "$($Key)" -DefaultIcon "imageres.dll,-8302" -FileAssoList @(".doc",".docx","dot","odt")
+                    {$_ -in 4,5,28} { # PDF, Epub, DjVu
+                        $OpenIcon="C:\Program Files\ONLYOFFICE\DesktopEditors\DesktopEditors.exe,-118"
+                        # [string[]]$OfficeExtList=@(".ppt",".pptx") 
+                    }
+                    default {
+                        $OpenIcon="C:\Program Files\ONLYOFFICE\DesktopEditors\DesktopEditors.exe,-101"
                     }
                 }
+                CreateFileAssociation "$($Key)" -ShellOperations "open" -Icon "$($OpenIcon)"
             }
         }
         CreateFileAssociation "ASC.Csv" -DefaultIcon "imageres.dll,-8301" -FileAssoList @(".csv")
     }
     # When no office program installed: Use browser to open
     else {
-        # PPT
-        CreateFileAssociation "PPTFile" -FileAssoList @(".ppt",".pptx") -DefaultIcon "imageres.dll,-8312" -TypeName "@explorerframe.dll,-50295" -ShellOperations "open" -Icon "$($BrowserIcon)" -command "$($BrowserOpenAction)"
+        . "$($PSScriptRoot)\CheckDefaultBrowser.ps1"
+        [hashtable]$DefaultBrowser=(CheckDefaultBrowser)
+        $InstalledOffice=@{
+            Office="$($DefaultBrowser.OpenInBrowserText)"
+            DOC="Word"
+            PPT="PowerPoint"
+            XLS="Excel"
+        }
+        CreateFileAssociation @("PPTFile"."DOCFile","XLSFile") -ShellOperations "open" -ShellOpDisplayName "$($DefaultBrowser.OpenInBrowserText)" -Icon "$($DefaultBrowser.Icon)" -command "$($DefaultBrowser.OpenAction)"
         # WORD
-        CreateFileAssociation "DOCFile" -FileAssoList @(".doc",".docx","odt") -DefaultIcon "imageres.dll,-8302" -TypeName "@explorerframe.dll,-50293" -ShellOperations "open" -Icon "$($BrowserIcon)" -command "$($BrowserOpenAction)"
+        CreateFileAssociation "DOCFile" -FileAssoList @(".doc",".docx","odt") -DefaultIcon "imageres.dll,-8302" -TypeName "@explorerframe.dll,-50293"
         # EXCEL
-        CreateFileAssociation "XLSFile" -FileAssoList @(".xls",".xlsx","xlsm") -DefaultIcon "imageres.dll,-8320" -TypeName "@explorerframe.dll,-50294" -ShellOperations "open" -Icon "$($BrowserIcon)" -command "$($BrowserOpenAction)"
+        CreateFileAssociation "XLSFile" -FileAssoList @(".xls",".xlsx","xlsm") -DefaultIcon "imageres.dll,-8320" -TypeName "@explorerframe.dll,-50294"
+        # PPT
+        CreateFileAssociation "PPTFile" -FileAssoList @(".ppt",".pptx") -DefaultIcon "imageres.dll,-8312" -TypeName "@explorerframe.dll,-50295"
     }
+    return $InstalledOffice
 }

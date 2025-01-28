@@ -21,13 +21,14 @@ function GenerateCustomNamespace {
                 }
                 . "$($PSScriptRoot)\Hashtables.ps1"
                 [hashtable]$DrivesWebsites=$(GetHashTables "CloudWebsites")
-                [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','') | Where-Object {($_ -NotIn @('Google_Drive','Google_Photos')) -and ($_ -notlike "Box*")} # RClone Drive Names is stored with [] in rclone.conf
-                    # I excluded Google Drive because Google Drive is 
-                for($i=0;$i -le 99; $i++) { # This script can display max. 10 CLSID entries.
-                    [string]$RcloneCLSID="{6587a16a-ce27-424b-bc3a-8f044d36fd$('{0:d2}' -f $i)}"
+                [string]$rCloneLocalFolderLocation="$($env:LocalAppdata)\rclone\CloudFolders" # (& "$($PSScriptRoot)\..\rClone_mount.ps1")
+                $rCloneLocalFolderLocation=$rCloneLocalFolderLocation.Trim() # The command above creates a leading empty space. Use "Trim" to remove it
+                [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','') | Where-Object {($_ -NotIn @('Google_Drive','Google_Photos')) } # RClone Drive Names is stored with [] in rclone.conf -and ($_ -notlike "Box*")
+                for($i=0;$i -le 99; $i++) { # This script can display max. 100 CLSID entries.
+                    [string]$RcloneCLSID="{6587a16a-ce27-424b-bc3a-8f044d36fd$('{0:d2}' -f $i)}" # Two digits from 00 to 99
                     if(($i -lt $rCloneDrives.count)) {
-                        [int]$StringLength=$rCloneDrives[$i].LastIndexOf('_') # put lastindexof instead of indexof for Google_Drive or Google_Photos
-                        if($StringLength -eq -1) { # No underline in name
+                        [int]$StringLength=$rCloneDrives[$i].IndexOf('-') # Uderline for space in drive name, hyphen for space between drive name and account name
+                        if($StringLength -eq -1) { # No hyphen in name
                             $StringLength=$rCloneDrives[$i].length
                         }
                         [string]$CloudDriveName=$rCloneDrives[$i].SubString(0,$StringLength)
@@ -36,7 +37,7 @@ function GenerateCustomNamespace {
                         if(($DriveIcon.length -eq 0) -or (!(Test-Path "$($DriveIcon)") -and ($DriveIcon -like "*.ico"))) { # some cloud drives use DLL entries instead of ICO.
                             $DriveIcon=(GetDistroIcon "rClone" -CloudDrive)[1]
                         }
-                        MkDirCLSID "$($RcloneCLSID)" -Name "$($rCloneDrives[$i] -replace '_',' ')" -TargetPath "$($env:Userprofile)\$($rCloneDrives[$i])" -Icon "$($DriveIcon)" -FolderType 9 -Pinned 0
+                        MkDirCLSID "$($RcloneCLSID)" -Name "$($rCloneDrives[$i] -replace '_',' ')" -TargetPath "$($rCloneLocalFolderLocation)\$($rCloneDrives[$i])" -Icon "$($DriveIcon)" -FolderType 9 -Pinned 0
                         [string]$DriveSite=""
                         foreach($DriveName in $DrivesWebsites.keys) {
                             if($rCloneDrives[$i] -like "$($DriveName)*") {

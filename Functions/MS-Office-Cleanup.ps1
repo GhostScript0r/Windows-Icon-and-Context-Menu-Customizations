@@ -25,20 +25,21 @@ function MSOfficeCleanup {
         #     Write-Host "Office was not updated since last time the program was running"
         # }
         # else
-        if((Test-Path "$($MSOfficeLoc)\MSACCESS.EXE") ) { 
+        if((Test-Path "$($MSOfficeLoc)\MSACCESS.EXE") -or $true) { 
             # Access is one of the things I definitely dont't need. If they are present, it means a cleanup is needed.
             Write-Host "Running cleanup..."
             $MSCleanupConfig=@'
             <Configuration>
-                <Remove> 
-                    
+                <Remove>    
                     <Product ID="Access" />
-                    <!--
+                    <Product ID="Outlook" />
                     <Product ID="SkypeforBusinessRetail"/>
+                    <Product ID="Lynk" />
+                    <!--
                     <Product ID="Publisher" />
                     <Product ID="OneDrive" />
                     <Product ID="Groove" />
-                    <Product ID="Lynk" />
+
                     <Product ID="OneNote" />
                     -->
                 </Remove>
@@ -53,8 +54,7 @@ function MSOfficeCleanup {
                     <ExcludeApp ID="Lynk" />
                     <ExcludeApp ID="OneNote" />
                     <ExcludeApp ID="SkypeforBusinessRetail"/>
-                    <!-- If not using Outlook UWP App comment out the next line to avoid removing Outlook -->
-                    <!-- <ExcludeApp ID="Outlook" /> -->
+                    <ExcludeApp ID="Outlook" />
                 </Product>
                 </Add>
                 <Updates Enabled="TRUE" Channel="Broad" />

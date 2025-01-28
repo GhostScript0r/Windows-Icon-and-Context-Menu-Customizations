@@ -134,7 +134,8 @@ catch { # If the last run returns an error
 # --------Java files--------
 [bool]$JREInstalled=((Get-Command javaw -ea 0).name -like "javaw.exe")
 if($JREInstalled) {
-    CreateFileAssociation "jarfile" -ShellOperations "open" -MUIVerb "@shell32.dll,-12710" -Icon "javaw.exe"
+    [string]$JavaExecutable="$((Get-ChildItem 'C:\Program Files\Java\latest\')[0].FullName)\bin\java.exe"
+    CreateFileAssociation "jarfile" -ShellOperations "open" -MUIVerb "@shell32.dll,-12710" -Icon "$($JavaExecutable)"
 }
 ZipFileAssoc # zip relevant, compressed archives
 PDFFileAsso # PDF Document
@@ -258,7 +259,8 @@ if([System.Environment]::OSVersion.Version.Build -ge 22000) {
 else {
     [string]$HTMLIcon="ieframe.dll,-110"
 }
-CreateFileAssociation @("htmlfile","$($VSCodeVerHKCR).htm","$($VSCodeVerHKCR).html","MSEdgeHTM","Applications\MSEdge.exe") -DefaultIcon "ieframe.dll,-210" -ShellOperations @("open","edit","print","printto") -Icon @("$($DefaultBrowser.Icon)","`"$($VSCodeInfo.Path)`",0","DDORes.dll,-2414","DDORes.dll,-2413") -Command @("$($DefaultBrowser.OpenAction)","`"$($VSCodeInfo.Path)`" `"%1`"","","") -MUIVerb @("$($OpenHTMLVerb)","","","") -LegacyDisable @(0,0,1,1)
+[string[]]$AllHTMLEntries=@("htmlfile","$($VSCodeVerHKCR).htm","$($VSCodeVerHKCR).html")+$DefaultBrowser.ExtraEntries
+CreateFileAssociation $AllHTMLEntries -DefaultIcon "ieframe.dll,-210" -ShellOperations @("open","edit","print","printto") -Icon @("$($DefaultBrowser.Icon)","`"$($VSCodeInfo.Path)`",0","DDORes.dll,-2414","DDORes.dll,-2413") -Command @("$($DefaultBrowser.OpenAction)","`"$($VSCodeInfo.Path)`" `"%1`"","","") -MUIVerb @("$($OpenHTMLVerb)","","","") -LegacyDisable @(0,0,1,1)
 CreateFileAssociation @("MSEdgeHTM","Applications\MSEdge.exe") -Shelloperations "open" -Icon $EdgeBrowser.Icon -Command $EdgeBrowser.OpenAction
 MakeReadOnly "HKCR\MSEdgeHTM\DefaultIcon" -InclAdmin
 MakeReadOnly "HKCR\htmlfile\DefaultIcon" -InclAdmin
@@ -481,3 +483,6 @@ DAToolSetFileAssoc
 # Use dark mode
 SetValue "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "SystemUsesLightTheme" -Type "4" -Value 0
 SetValue "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\Themes\Personalize" -Name "AppUsesLightTheme" -Type "4" -Value 0
+# Disable Xbox Game Bar
+SetValue "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\GameDVR" -Name "AppCaptureEnabled" -Type "dword" -Value 0
+SetValue "HKEY_CURRENT_USER\SOFTWARE\Microsoft\Windows\CurrentVersion\GameDVR" -Name "GameDVR_Enabled" -Type "dword" -Value 0
