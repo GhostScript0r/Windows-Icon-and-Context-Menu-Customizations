@@ -1,6 +1,21 @@
-. "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
 function MediaPlayerFileAssoc {
     param()
+    . "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
+    . "$($PSScriptRoot)\GetIcons.ps1"
+    GetDistroIcon -IconForMIME
+    [string]$VideoIcon="$($env:USERPROFILE)\Links\Video.ico"
+    [string]$MusicIcon="$($env:USERPROFILE)\Links\Music.ico"
+    if(-not (Test-Path "$($VideoIcon)")) { 
+        [string]$VideoIcon="imageres.dll,-133"
+    }
+    if(-not (Test-Path "$($MusicIcon)")) {
+        if([System.Environment]::OSVersion.Version.Build -ge 22620) {
+            [string]$MusicIcon="imageres.dll,-1026"
+        }
+        else {
+            [string]$MusicIcon="imageres.dll,-131"
+        }
+    }
     # Check which media player is installed
     [string[]]$MPlayers=@("VLC","WMP Legacy","WMP UWP")
     [bool]$WMPLegacyInstalled=((Get-ItemProperty -Path "Registry::HKLM\Software\Microsoft\Active Setup\Installed Components\{22d6f312-b0f6-11d0-94ab-0080c74c7e95}" -ea 0).isinstalled -eq 1)
@@ -24,14 +39,14 @@ function MediaPlayerFileAssoc {
             }
             [string]$VLCFileType=(Get-ItemProperty -LiteralPath "Registry::HKCR\$($VLCExtension)" -ea 0).'PerceivedType'
             if($VLCFileType -like "audio") { # VLC Audio File
-                [string]$VLCFileIcon="imageres.dll,-1026" # "imageres.dll,-22"
+                [string]$VLCFileIcon="$($MusicIcon)" # "imageres.dll,-22"
                 [string]$VLCFileName="@wiashext.dll,-279"
                 if($VLCExtension -like ".mid*") {
                     [string]$VLCFileName="@unregmp2.dll,-9993"
                 }
             }
             elseif($VLCFileType -like "video" -or (@(".rmvb",".flv") -contains $VLCFileType)) {
-                [string]$VLCFileIcon="imageres.dll,-23"
+                [string]$VLCFileIcon="$($VideoIcon)"
                 if($VLCExtension -like ".mp4") {
                     [string]$VLCFileName="@unregmp2.dll,-9932"
                 }

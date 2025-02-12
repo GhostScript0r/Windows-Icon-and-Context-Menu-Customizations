@@ -7,6 +7,7 @@ function GetDistroIcon {
         [string]$DistroName="",
         [switch]$CloudDrive,
         [switch]$IconForLnk,
+        [switch]$IconForMIME,
         [switch]$IconForWSLApp,
         [switch]$Force,
         [switch]$CopyAppIconPNG,
@@ -52,8 +53,15 @@ function GetDistroIcon {
         }
         return $TargetFile
     }
-    if($IconForLnk) {
-        $DistroLogoURLs=(GetHashTables "IconForLnk")
+    if($IconForLnk -or $IconForMIME) {
+        if($IconForLnk) {
+            $DistroLogoURLs=(GetHashTables "IconForLnk")
+            [string]$DisplayText="for shortcuts"
+        }
+        elseif($IconForMIME) {
+            $DistroLogoURLs=(GetHashTables "MIME")
+            [string]$DisplayText="for file icons"
+        }
         if([System.Environment]::OSVersion.Version.Build -lt 18200) {
             # Old Windows version like 2019 LTSC does not have an icon for WSL.
             $DistroLogoURLs.Add("Tux","https://www.kernel.org/theme/images/logos/favicon.png")
@@ -71,7 +79,7 @@ function GetDistroIcon {
                     magick.exe "$($AppDataDir)\$($hash.Name).png" -trim -resize 256x256 -background '#00000000' -gravity center -extent 256x256 "$($AppDataDir)\$($hash.Name).png"
                     magick.exe -background transparent "$($AppDataDir)\$($hash.Name).png" -define icon:auto-resize=16,24,32,48,64,72,96,128,256 "$($AppDataDir)\$($hash.Name).ico"
                 }
-                Write-Host "$($hash.Name).ico created and can be used in shortcuts" -ForegroundColor Green
+                Write-Host "$($hash.Name).ico created and can be used $($DisplayText)." -ForegroundColor Green
             }
         }
         return # no need to return anything.

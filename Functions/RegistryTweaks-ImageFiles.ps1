@@ -1,7 +1,12 @@
-. "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
-. "$($PSScriptRoot)\CheckInstallPath.ps1"
 function ImageFileAssoc {
     param()
+    . "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
+    . "$($PSScriptRoot)\CheckInstallPath.ps1"
+    GetDistroIcon -IconForMIME
+    [string]$ImageIcon="$($env:USERPROFILE)\Links\Image.ico"
+    if(-not (Test-Path "$($ImageIcon)")) {
+        [string]$ImageIcon="imageres.dll,-132"
+    }
     [bool]$NoPaintApp=$false
     [string]$PaintAppName="mspaint.exe"
     [bool]$PaintAppIsUWP=$false
@@ -75,7 +80,7 @@ function ImageFileAssoc {
         Copy-item -Path "Registry::HKCR\PhotoViewer.FileAssoc.Tiff\shell\open\command" -Destination "Registry::HKCR\$($CursorType)\shell\open" -force
         Copy-item -Path "Registry::HKCR\PhotoViewer.FileAssoc.Tiff\shell\open\droptarget" -Destination "Registry::HKCR\$($CursorType)\shell\open" -force
     }
-    CreateFileAssociation "PhotoViewer.FileAssoc.Tiff" -ShellOperations "open" -Icon "`"C:\Program Files\Windows Photo Viewer\PhotoViewer.dll`",0" -DefaultIcon "imageres.dll,-122" # "`"C:\Program Files\Windows Photo Viewer\PhotoAcq.dll`",-7"
+    CreateFileAssociation "PhotoViewer.FileAssoc.Tiff" -ShellOperations "open" -Icon "`"C:\Program Files\Windows Photo Viewer\PhotoViewer.dll`",0" -DefaultIcon "$($ImageIcon)" # "`"C:\Program Files\Windows Photo Viewer\PhotoAcq.dll`",-7"
     $SysFileAssoExt=(Get-ChildItem "Registry::HKEY_CLASSES_ROOT\SystemFileAssociations\.*")
     foreach($AssoExt in $SysFileAssoExt) {
         if(Test-Path "Registry::$($AssoExt.name)\shell\setdesktopwallpaper") {

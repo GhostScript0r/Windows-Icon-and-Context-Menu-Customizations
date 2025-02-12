@@ -265,6 +265,7 @@ foreach ($ProgramUpgrade in $ProgramsWithUpgrade) {
 	Write-Host "There's a newer version for $($ProgramUpgrade). Updating..." 
 	winget upgrade $ProgramUpgrade --accept-package-agreements --accept-source-agreements
 }
+# ___________________________
 # Install radio-browser.info addon for VLC Media Player
 [bool]$VLCInstalled=(Test-Path "C:\Program Files\VideoLAN\VLC\vlc.exe")#([string]((winget list VideoLAN.VLC) -like "*VideoLAN.VLC*")).length -gt 0
 if($VLCInstalled) {
@@ -278,3 +279,11 @@ if($VLCInstalled) {
 		}
 	}
 }
+#_____________________________
+# Install Firefox sidebar
+# [string]$FirefoxPath="C:\Program Files\Mozilla Firefox"
+# [bool]$FireFoxInstalled=(Test-Path "$($FirefoxPath)\firefox.exe")
+# [bool]$GitInstalled=($(where.exe git.exe) -like "*git.exe")
+# if($FireFoxInstalled) {
+	
+# }
