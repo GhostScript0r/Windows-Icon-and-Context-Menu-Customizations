@@ -77,12 +77,12 @@ function GenerateCustomNamespace {
                 if(Test-Path "$($EpicLauncherLoc)") {
                     CreateFileAssociation "CLSID\$($GamesCLSID)" -ShellOperations "Epic Games Store" -Command "$($EpicLauncherLoc)" -Icon "$($EpicLauncherLoc)"
                 }
-                $nVidiaContainerFile=(Get-Item "C:\Windows\System32\DriverStore\FileRepository\nvlti.inf_*\Display.NvContainer\NVDisplay.Container.exe")
-                [bool]$nVidiaCPAppInstalled=((Get-AppxPackage NVIDIACorp.NVIDIAControlPanel).Count -eq 1)
-                if($nVidiaContainerFile.count -gt 0) {
+                $nVidiaCPAppInstalled=(Get-AppxPackage NVIDIACorp.NVIDIAControlPanel)
+                if($nVidiaCPAppInstalled.count -eq 1) {
                     # Add nVidia settings to Games menu
                     if($nVidiaCPAppInstalled) {
-                        CreateFileAssociation "CLSID\$($GamesCLSID)" -ShellOperations "nVidia Control Panel" -Command "explorer.exe shell:AppsFolder\NVIDIACorp.NVIDIAControlPanel_56jybvy8sckqj!NVIDIACorp.NVIDIAControlPanel" -Icon "$($nVidiaContainerFile)"
+                        [string]$nVidiaIconExe="$($nVidiaCPAppInstalled.InstallLocation)\NvGpuUtilization.exe"
+                        CreateFileAssociation "CLSID\$($GamesCLSID)" -ShellOperations "nVidia Control Panel" -Command "explorer.exe shell:AppsFolder\NVIDIACorp.NVIDIAControlPanel_56jybvy8sckqj!NVIDIACorp.NVIDIAControlPanel" -Icon "$($nVidiaIconExe)"
                     }
                 }
             }
@@ -212,7 +212,7 @@ Windows Registry Editor Version 5.00
                         # MkDirCLSID "{77777777-7777-4489-a3ca-2b3aae34421$($i)}" -Pinned $Pinned -Icon $LibraryIcon -Name $LibraryName -Infotip $LibraryInfoTip -TargetPath $LibraryDescripCLSID
                     # }
                 }
-                WebsiteInContextMenu "{24ad3ad4-a569-4530-98e1-ab02f9417aa8}" -SiteNames @("Google_Photos","Flickr")
+                WebsiteInContextMenu "{24ad3ad4-a569-4530-98e1-ab02f9417aa8}" -SiteNames @("Google Photos","Flickr")
                 WebsiteInContextMenu "{d3162b92-9365-467a-956b-92703aca08af}" -SiteNames @("Google Docs","Adobe Document Cloud","Google Play Books")
                 WebsiteInContextMenu "{f86fa3ab-70d2-4fc7-9c99-fcbf05467f3a}" -SiteNames @("YouTube","YouTube Studio","ZDF Mediathek","ARD Mediathek")
                 CreateFileAssociation "CLSID\{f86fa3ab-70d2-4fc7-9c99-fcbf05467f3a}" -ShellOperations "YouTube Studio" -Extended 1
@@ -226,7 +226,7 @@ Windows Registry Editor Version 5.00
                 SetValue -RegPath "HKCR\CLSID\{d3162b92-9365-467a-956b-92703aca08af}" -Name "Infotip" -Value "@shell32.dll,-22914" # MyDocuents
                 SetValue -RegPath "HKCR\CLSID\{59031a47-3f72-44a7-89c5-5595fe6b30ee}" -Name "Infotip" -Value "@shell32.dll,-30372" # User profile folder infotip
                 SetValue -RegPath "HKCR\CLSID\{f874310e-b6b7-47dc-bc84-b9e6b38f5903}" -Name "Infotip" -Value "@propsys.dll,-42249" # Most frequently used folder
-                New-ItemProperty -Path "Registry::HKCR\CLSID\{59031a47-3f72-44a7-89c5-5595fe6b30ee}" -Name "System.IsPinnedToNameSpaceTree" -Value 1 -PropertyType "4" # Pin Userprofile to tree view
+                New-ItemProperty -Path "Registry::HKCR\CLSID\{59031a47-3f72-44a7-89c5-5595fe6b30ee}" -Name "System.IsPinnedToNameSpaceTree" -Value 1 -PropertyType "4" -ea 0 # Pin Userprofile to tree view
             }
         }
     }

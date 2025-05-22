@@ -75,7 +75,7 @@ if($OfficeCleanupOnly -or ((Get-AppxPackage "Microsoft.WindowsStore").count -eq 
 	"MicrosoftTeams"
 	"AdvancedMicroDevicesInc-2.AMDRadeonSoftware"
 	"microsoft.windowscommunicationsapps"
-	"microsoft.outlookforwindows"
+	# "microsoft.outlookforwindows"
 	"Microsoft.Windows.DevHome"
 	"Microsoft.Windows.DevHomeGitHubExtension"
 )
