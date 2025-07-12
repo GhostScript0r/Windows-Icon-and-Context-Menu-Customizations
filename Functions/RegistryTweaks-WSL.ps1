@@ -42,6 +42,7 @@ function WriteWSLRegistry {
     if($DistroNames[0].length -eq 0) {
         Write-Host "WSL is enabled but no distro is installed."
         MkDirCLSID $WSLFolderCLSIDs[0] -RemoveCLSID
+        CreateFileAssociation @("Directory\Background","Directory","LibraryFolder\background") -ShellOperations "WSL" -LegacyDisable 1
         return
     }
     [string[]]$MoreDistroName=(GetExtraWSL)

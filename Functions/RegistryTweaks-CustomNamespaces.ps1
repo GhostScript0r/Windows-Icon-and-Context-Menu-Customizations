@@ -24,9 +24,17 @@ function GenerateCustomNamespace {
                 [string]$rCloneLocalFolderLocation="$($env:LocalAppdata)\rclone\CloudFolders" # (& "$($PSScriptRoot)\..\rClone_mount.ps1")
                 $rCloneLocalFolderLocation=$rCloneLocalFolderLocation.Trim() # The command above creates a leading empty space. Use "Trim" to remove it
                 [string[]]$rCloneDrives=(((Get-Content "$($env:Appdata)\rclone\rclone.conf") -match "\[.*\]") -replace '\[','' -replace '\]','') | Where-Object {($_ -NotIn @('Google_Drive','Google_Photos')) } # RClone Drive Names is stored with [] in rclone.conf -and ($_ -notlike "Box*")
+                # The following variable decides whether to show one "rClone" entry only, or show each cloud drive individually.
+                [bool]$ShowAllInExplorer=$false # Change to $true to show one entry for each rclone drive. $false to show only one "rClone Cloud Folder" in "This PC".                
                 for($i=0;$i -le 99; $i++) { # This script can display max. 100 CLSID entries.
                     [string]$RcloneCLSID="{6587a16a-ce27-424b-bc3a-8f044d36fd$('{0:d2}' -f $i)}" # Two digits from 00 to 99
-                    if(($i -lt $rCloneDrives.count)) {
+                    Write-Host "Reading rClone entry No. $('{0:d2}' -f $i)"
+                    if(($i -gt 0) -and (-not (Test-Path "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($RcloneCLSID)") -and (-not (Test-Path "Registry::HKCU\Software\Classes\CLSID\$($RcloneCLSID)")))) # No need to continue
+                    {
+                        Write-Host "Reading rClone entry ended."
+                        break
+                    }
+                    if(($i -lt $rCloneDrives.count) -and ($ShowAllInExplorer)) {
                         [int]$StringLength=$rCloneDrives[$i].IndexOf('-') # Uderline for space in drive name, hyphen for space between drive name and account name
                         if($StringLength -eq -1) { # No hyphen in name
                             $StringLength=$rCloneDrives[$i].length
@@ -34,7 +42,8 @@ function GenerateCustomNamespace {
                         [string]$CloudDriveName=$rCloneDrives[$i].SubString(0,$StringLength)
                         [string[]]$DriveIcons=(GetDistroIcon "$($CloudDriveName)" -CloudDrive)
                         [string]$DriveIcon=$DriveIcons[1]
-                        if(($DriveIcon.length -eq 0) -or (!(Test-Path "$($DriveIcon)") -and ($DriveIcon -like "*.ico"))) { # some cloud drives use DLL entries instead of ICO.
+                        if(($DriveIcon.length -eq 0) -or ((!(Test-Path "$($DriveIcon)")) -and ($DriveIcon -like "*.ico"))) { # some cloud drives use DLL entries instead of ICO.
+                            Write-Host "No icon found for $($CloudDriveName) - using default icon (grey)" -ForegroundColor Red
                             $DriveIcon=(GetDistroIcon "rClone" -CloudDrive)[1]
                         }
                         MkDirCLSID "$($RcloneCLSID)" -Name "$($rCloneDrives[$i] -replace '_',' ')" -TargetPath "$($rCloneLocalFolderLocation)\$($rCloneDrives[$i])" -Icon "$($DriveIcon)" -FolderType 9 -Pinned 0
@@ -51,12 +60,16 @@ function GenerateCustomNamespace {
                         if($Drivesite -notlike "https://*") {
                             $Drivesite="https://"+$Drivesite
                         }
-                        CreateFileAssociation "CLSID\$($RcloneCLSID)" -ShellOperations "Browse" -Icon "$($WebsiteIcon)" -ShellOpDisplayName "$($DriveSite.replace('https://','')) besuchen" -Command "rundll32 url.dll,FileProtocolHandler $($Drivesite)" -LegacyDisable (-Not $WebsiteValid)
+                        CreateFileAssociation "CLSID\$($RcloneCLSID)" -ShellOperations "Browse" -Icon "$($WebsiteIcon)" -ShellOpDisplayName "$($DriveSite.replace('https://','')) besuchen" -Command "rundll32 url.dll,FileProtocolHandler $($Drivesite)" -LegacyDisable (-Not $WebsiteValid) # Onl create this particular item if the website exists
                         SetValue "HKCR\CLSID\$($RcloneCLSID)\shell\Browse" -Name "Position" -Value "Top"
                     }
                     else {
                         Remove-Item "Registry::HKCR\CLSID\$($RcloneCLSID)" -Force -Recurse -ea 0
                         Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($RcloneCLSID)" -Force -Recurse -ea 0
+                    }
+                    if(($i -eq 0) -and (-not $ShowAllInExplorer)) {
+                        MkDirCLSID "$($RcloneCLSID)" -Name "rClone Cloud-Laufwerke" -TargetPath "$($rCloneLocalFolderLocation)" -Icon $((GetDistroIcon "rClone" -CloudDrive)[1]) -FolderType 9 -Pinned 0
+                        break
                     }
                 }
                 UpdateStorageInfo -NetDriveOnly

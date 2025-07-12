@@ -136,7 +136,9 @@ function UpdateStorageInfo {
                     [string]$StorageInformation="OFFLINE"
                     # rClone_mount.ps1 will kill all the rclone processes when device is offline
                 }
-                CreateKey "HKCR\CLSID\$($Drive)" -StandardValue "$($DriveName) ($($StorageInformation))"
+                if($DriveName -notlike "rClone Cloud*") {
+                    CreateKey "HKCR\CLSID\$($Drive)" -StandardValue "$($DriveName) ($($StorageInformation))"
+                }
             }
         }
     }

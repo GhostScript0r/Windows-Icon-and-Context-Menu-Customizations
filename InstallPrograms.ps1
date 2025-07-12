@@ -34,7 +34,7 @@ if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem
 		Write-Host "WSL2 not supported on this build."
 	}
 	. "$($PSScriptRoot)\Functions\GetDefaultWSL.ps1"
-	if((-not $(GetDefaultWSL)) -and ($CurrentBuildVer.Build -ge 18000)) { # WSL2 supported, yet no WSL distro installed.
+	# if((-not $(GetDefaultWSL)) -and ($CurrentBuildVer.Build -ge 18000)) { # WSL2 supported, yet no WSL distro installed.
 		# Will Install a Linux distro. Ubuntu or Kali Linux
 		# Write-Host "Download and install a Linux Distro first"
 		# Invoke-WebRequest "https://aka.ms/wsl-kali-linux-new" -outfile "$($env:TEMP)\Kali-Linux.zip"
@@ -43,7 +43,7 @@ if((Get-WindowsOptionalFeature -online -featurename "Microsoft-Windows-Subsystem
 		# Rename-Item -Path "$($X64Package)" -NewName "Kali_x64.zip"
 		# Expand-Archive -Path "$($env:TEMP)\Kali\Kali_x64.zip" -Destination "$($env:LOCALAPPDATA)\Kali"
 		# Start-Process "$($env:LOCALAPPDATA)\kali\kali.exe"
-	}
+	# }
 }
 # __________________________
 # Install GitHub desktop - it's not working very well. So it's commented out and has to be installed manually.
@@ -215,7 +215,7 @@ $listofprograms=$listofprograms+@(`
 
 # Image processing
 # "ImageMagick.ImageMagick","ArtifexSoftware.GhostScript",`
-"GIMP.GIMP"
+# "GIMP.GIMP" # Now GIMP has version 3
 "VideoLAN.VLC","GyanD.FFMPEG" # "KDE.Kdenlive",`
 # "Workrave.Workrave",`
 "BotProductions.IconViewer"
@@ -232,12 +232,12 @@ $listofprograms=$listofprograms+@(`
 # CMD Tools
 # "GNU.MidnightCommander"
 
-#To Run WSL in graphics mode (not needed with WSLg)
+#To Run WSL in graphics mode (no longer needed with WSLg)
 # "marha.VcXsrv"
 
 # Dev languages for android development:
 # "GoLang.Go"
-"Python.Python.3.12"
+"Python.Python.3.13"
 )
 if([System.Environment]::OSVersion.Version.Build -ge 19041) {
 	$listofprograms=$listofprograms+@("Microsoft.PowerToys") # PowerToys requires Build 19041 or higher
