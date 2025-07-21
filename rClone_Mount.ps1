@@ -1,10 +1,11 @@
 [OutputType([string])]
 param()
 . "$($PSScriptRoot)\Functions\RunAsAdmin.ps1"
+. "$($PSScriptRoot)\Functions\TestNetConnection.ps1"
 RunAsAdmin "$($PSCommandPath)"
 [string]$rCloneCloudFolder="$($env:LocalAppdata)\rclone\CloudFolders"
 New-Item -ItemType Directory -Path "$($rCloneCloudFolder)" -ea 0 | Out-Null
-if((Test-NetConnection box.com).pingsucceeded) { # Need to ping box.com to make sure ipv4 works
+if($(TestNetConnection)) { # Need to ping box.com to make sure ipv4 works
     [string[]]$rCloneConfText=(Get-Content "$($env:Appdata)\rclone\rclone.conf") # Entire rClone config file in text
     [string[]]$rCloneDrives=(($rCloneConfText -match '\[.*\]') -replace '\[','' -replace '\]','')
     [string[]]$rCloneDrivesCLSIDs=(Get-Item "Registry::HKCR\CLSID\{6587a16a-ce27-424b-bc3a-8f044d36fd??}").Name

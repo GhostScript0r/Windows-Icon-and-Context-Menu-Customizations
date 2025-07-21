@@ -9,7 +9,7 @@ function UpdateStorageInfo {
         [switch]$NetDriveOnly
     )
     [string[]]$CustomDrives=(Split-Path ((Get-ChildItem "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace").Name) -leaf)
-    [bool]$PingSucceeded=(Test-NetConnection box.com).pingsucceeded
+    [bool]$InternetAvailable=$(TestNetConnection)
     foreach($Drive in $CustomDrives) {
         if(!(Test-Path "Registry::HKCR\CLSID\$($Drive)")) { # the drive's definition is no longer present, possibly drive uninstalled, leaving a blank icon in explorer. Time to remove this entry
             Remove-Item "Registry::HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MyComputer\NameSpace\$($Drive)"
@@ -80,7 +80,7 @@ function UpdateStorageInfo {
                     Write-Host "Skipped, network drive not recalculated" -BackgroundColor White -ForegroundColor Black
                     continue
                 }
-                if($PingSucceeded) { # Only calculate disk size if there's internet connection.
+                if($InternetAvailable) { # Only calculate disk size if there's internet connection.
                     if((($DriveName -like "Google*" -and (Test-Path "C:\Program Files\Google\Drive File Stream\drive_fs.ico")) -or ($DriveName -like "pCloud*" -and (Test-Path "C:\Program Files\pCloud Drive\pcloud.exe"))) -and ($DriveName -NotLike "*_*")) { # Virtual drives created by Google Drive and pCloud app
                         if($DriveName -like "Google*") {
                             $DriveLetter="A"
