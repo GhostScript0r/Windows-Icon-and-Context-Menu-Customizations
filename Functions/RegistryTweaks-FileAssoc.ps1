@@ -21,12 +21,25 @@ function CreateFileAssociation {
         [string[]]$CommandId=@(),
         [string[]]$DelegateExecute=@(),
         [switch]$IsURLProtocol,
-        [string]$URL=""
+        [string]$URL="",
+        [switch]$ForceHKCU, # Force to create in HKCU\Software\Classes
+        [switch]$ForceHKLM # Force to create in HKLM\Software\Classes	
     )
+    if($ForceHKCU -and $ForceHKLM) {
+        Write-Host "Cannot force both HKCU and HKLM at the same time. Please choose one of them." -ForegroundColor Red -BackgroundColor Black
+        return
+    }
     Write-Host "Creating shell actions for $($HKCRList[0]) type"
     $PathList=[string[]]::new($HKCRList.Length)
     for($i=0;$i -lt $HKCRList.length; $i++) {
-        $PathList[$i]=$(CorrectPath $HKCRList[$i] -AddHKCR) 
+        $PathList[$i]=$(CorrectPath $HKCRList[$i] -AddHKCR)
+        if($ForceHKCU) {
+            $PathList[$i]=$PathList[$i].replace("HKCR\","HKCU\Software\Classes\")
+            Write-Host "Switching the writing location to HKCU\Software\Classes for $($PathList[$i])..." -ForegroundColor Magenta
+        }
+        elseif($ForceHKLM) {
+            $PathList[$i]=$PathList[$i].replace("HKCR\","HKLM\Software\Classes\")
+        }
     }
     foreach($RegPath in $PathList) {
         if($IsURLProtocol) {

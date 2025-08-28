@@ -9,17 +9,7 @@ Write-Host "This script is inteneded to write in the usual registry stuff after 
 # Call functions
 # Check Admin Privilege
 . "$($PSScriptRoot)\Functions\RunAsAdmin.ps1"
-foreach($Argum in (GetThisScriptVariable $(Get-Variable))) {
-    if((Get-Variable "$($Argum)").value -eq $true) {
-        $ArgumentToPass = $ArgumentToPass + @($Argum)    
-    }
-}
-foreach($Argum in (GetThisScriptVariable $(Get-Variable))) {
-    if((Get-Variable "$($Argum)").value -eq $true) {
-        $ArgumentToPass = $ArgumentToPass + @($Argum)    
-    }
-}
-RunAsAdmin "$($PSCommandPath)" -Arguments $ArgumentToPass
+RunAsAdmin "$($PSCommandPath)" -Arguments $PSBoundParameters
 $PSFunctions=(Get-ChildItem "$($PSScriptRoot)\Functions\*.ps1")
 foreach($Function in $PSFunctions) {
     . "$($Function.FullName)"

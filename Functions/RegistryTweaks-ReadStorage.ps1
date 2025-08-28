@@ -1,7 +1,9 @@
 . "$($PSScriptRoot)\RegistryTweaks-BasicOps.ps1"
+. "$($PSScriptRoot)\RegistryTweaks-FileAssoc.ps1"
 . "$($PSScriptRoot)\GetFileSizeOnDisk.ps1"
 . "$($PSScriptRoot)\GetDefaultWSL.ps1"
 . "$($PSScriptRoot)\ReadableFileSize.ps1"
+. "$($PSScriptRoot)\TestNetConnection.ps1"
 function UpdateStorageInfo {
     param(
         [switch]$WSLOnly,
@@ -137,7 +139,21 @@ function UpdateStorageInfo {
                     # rClone_mount.ps1 will kill all the rclone processes when device is offline
                 }
                 if($DriveName -notlike "rClone Cloud*") {
-                    CreateKey "HKCR\CLSID\$($Drive)" -StandardValue "$($DriveName) ($($StorageInformation))"
+                    CreateKey "HKCU\Software\Classes\CLSID\$($Drive)" -StandardValue "$($DriveName) ($($StorageInformation))"
+                }
+                [bool]$DriveIsRclone=((Get-ItemProperty "Registry::HKEY_CURRENT_USER\Software\Classes\CLSID\$($Drive)\Instance\InitPropertyBag" -ea 0).'TargetFolderPath' -like "*rclone*") # Check if this is rClone drive
+                if($DriveIsRclone) {
+                    Write-Host "Flip rclone context menu entry on connecting or disconnecting the rClone drive."
+                    [string]$NamespaceName=(Get-ItemProperty "Registry::HKEY_CURRENT_USER\Software\Classes\CLSID\$($Drive)").'(default)'
+                    [string]$rCloneInstance=($NamespaceName -split ' \(' | Select-Object -First 1).replace(' ','_')
+                    if($NamespaceName -notlike "* (OFFLINE)") {
+                        CreateFileAssociation "CLSID\$($Drive)" -ShellOperations "connect" -Extended 1 -Icon "rasgcw.dll,-10013" -MUIVerb "@cmdial32.dll,-11044" -command "" -ForceHKCU -LegacyDisable 1 # Disconnection
+                    }
+                    else {
+                        Write-Host "Drive is offline, context menu for connection instead of disconnection."
+                        CreateFileAssociation "CLSID\$($Drive)" -ShellOperations "connect" -Extended 0 -Icon "prnfldr.dll,-244" -MUIVerb "@comres.dll,-1816" -Command "powershell.exe -File `"$(Split-Path -Path $PSScriptRoot -Parent)\rclone_Mount.ps1`" `"$($rCloneInstance)`" -ManualMountMode" -ForceHKCU -LegacyDisable 1 # Connection
+                    } 
+                    SetValue "HKCU\Software\Classes\CLSID\$($Drive)\shell\connect" -Name "Position" -Value "Bottom"
                 }
             }
         }

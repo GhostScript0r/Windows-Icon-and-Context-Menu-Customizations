@@ -11,7 +11,7 @@ function GitHubReleaseDownload {
         [string]$InstallPath="",
         [string]$Extension="",
         [switch]$NoUpdate,
-        [string]$TokenLocation="$($env:USERPROFILE)\OneDrive\Anlagen\GithubToken.txt"
+        [string]$TokenLocation="$(Split-Path (Split-Path $PSScriptRoot))\$([char]0x1F511) Credientials\GithubToken.txt"
     )
     if($IsZIP) {
         $Extension=".zip"
