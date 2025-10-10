@@ -38,7 +38,7 @@ function GenerateCustomNamespace {
                 # The following variable decides whether to show one "rClone" entry only, or show each cloud drive individually.               
                 for($i=0;$i -le 99; $i++) { # This script can display max. 100 CLSID entries.
                     [string]$RcloneCLSID="{6587a16a-ce27-424b-bc3a-8f044d36fd$('{0:d2}' -f $i)}" # Two digits from 00 to 99
-                    Write-Host "Reading rClone entry No. $('{0:d2}' -f $i)"
+                    Write-Host "Reading rClone entry No. $('{0:d2} ' -f $i)" -NoNewLine
                     $OnlyOneRCloneEntry=$true
                     if($OnlyOnerCloneEntry)
                     {
@@ -47,7 +47,10 @@ function GenerateCustomNamespace {
                         }
                         else {
                             Write-Host "No need to create more rClone entries, as only one main rClone entry is made." -ForegroundColor Yellow
-                            RemoveRCloneCLSID "$($RcloneCLSID)" -ea 0 # Remove all other rClone entries  
+                            if(Test-Path "Registry::HKCR\CLSID\$($RcloneCLSID)") {
+                                Write-Host "Removing rClone CLSID $($RcloneCLSID) as only one main rClone entry is made." -ForegroundColor Yellow
+                                RemoveRCloneCLSID "$($RcloneCLSID)" -ea 0 # Remove all other rClone entries  
+                            }
                         }
                         continue                     
                     }

@@ -9,19 +9,27 @@ param(
 . "$($PSScriptRoot)\Functions\Hashtables.ps1"
 # Use $PSBoundParameters to get all passed parameters and their values.
 RunAsAdmin "$($PSCommandPath)" -Arguments $PSBoundParameters
-
-
 [string]$rCloneCloudFolder="$($env:LocalAppdata)\rclone\CloudFolders"
 [hashtable]$CloudDriveWebsites=(GetHashTables "CloudWebsites") # Get the hashtable with cloud drive websites
 New-Item -ItemType Directory -Path "$($rCloneCloudFolder)" -ea 0 | Out-Null
 [string[]]$rCloneConfText=(Get-Content "$($env:Appdata)\rclone\rclone.conf") # Entire rClone config file in text
 [string[]]$rCloneDrives=(($rCloneConfText -match '\[.*\]') -replace '\[','' -replace '\]','')
 [string[]]$rCloneDrivesCLSIDs=(Get-Item "Registry::HKCR\CLSID\{6587a16a-ce27-424b-bc3a-8f044d36fd??}").Name
-if($(where.exe cotp.exe) -like "*cotp.exe") { #2FA CLI utility installed
+
+if($(where.exe cotp.exe) -like "*cotp.exe") { #2FA CLI utility (CLI based authenticator) installed
     [string[]]$rCloneEntries2FA=($rCloneConfText -match "2fa = \d{6}") # Find all entries including 2FA codes
-    [string[]]$rCloneEntries2FA_New=[System.Array]::CreateInstance([string],$rCloneEntries2FA.Count)
-    [int]$i=0
+    if($rCloneEntries2FA.count -eq 0) {
+        Write-Host "No 2FA codes found in rClone config file."
+        $ThereIs2FACode=$false
+    }
+    else {
+        [bool]$ThereIs2FACode=$true
+        [string[]]$rCloneEntries2FA_New=[System.Array]::CreateInstance([string],$rCloneEntries2FA.Count)
+        Write-Host "Found following 2FA Codes: $($rCloneEntries2FA -join ', ' -replace '2fa = ','')" -ForegroundColor White -BackgroundColor DarkGreen
+    }
+    
 }
+[int]$i=0
 Write-Host "In total there are $($rclonedrivesclsids.count) rClone drive entries in Windows Explorer and $($rclonedrives.count) rClone drives in the config file."
 if($rCloneDrivesCLSIDs.Count -ne $rCloneDrives.count) {
     . "$($PSScriptRoot)\Functions\RegistryTweaks-CustomNamespaces.ps1"
@@ -48,7 +56,23 @@ foreach($rCloneEntry in $rCloneDrives) {
         Write-Host "Refreshing the 2FA code of $($rCloneEntry).  Old code = $($rCloneEntries2FA[$i] -replace '2fa = ',''), New code = $($_2FACode)" -ForegroundColor White -BackgroundColor Blue
         $rCloneEntries2FA_New[$i]="2fa = $($_2FACode)"
         $rCloneConfText = (Get-Content "$($env:Appdata)\rclone\rclone.conf") # Run this again to get the full proper text of the config file. There had been bugs where unrelated parts were changed and removed.
-        $rCloneConfText -replace "$($rCloneEntries2FA[$i])","$($rCloneEntries2FA_New[$i])" | Set-Content "$($env:Appdata)\rclone\rclone.conf"
+        $rCloneConfText_New2FA = $rCloneConfText -replace "$($rCloneEntries2FA[$i])","$($rCloneEntries2FA_New[$i])"
+        if($rCloneConfText.length -eq $rCloneConfText_New2FA.length) {
+            Write-Host "Length of original and new rClone config text match. Proceeding to update the config file." -ForegroundColor Green
+        }
+        else {
+            Write-Host "Length of original and new rClone config text do NOT match. Something went wrong. Skipping update of the config file to prevent damaging or overwriting the original rclone.conf." -ForegroundColor Red
+            continue
+        }
+        $rCloneConfText_New2FA| Set-Content "$($env:Temp)\rclone.conf_NEW"
+        if((Get-Content "$($env:Temp)\rclone.conf_NEW").length -lt (Get-Content "$($env:Appdata)\rclone\rclone.conf").length - 2) {
+            Write-Host "New rClone config file is significantly smaller than the original. Something went wrong. Skipping update of the config file to prevent damaging or overwriting the original rclone.conf." -ForegroundColor Red
+            Remove-Item "$($env:Temp)\rclone.conf_NEW" -Force -ErrorAction SilentlyContinue 
+        }
+        else {
+            Move-Item "$($env:Temp)\rclone.conf_NEW" "$($env:Appdata)\rclone\rclone.conf" -Force
+            Write-Host "Successfully updated the rClone config file with new 2FA code." -ForegroundColor Green
+        }
         $i=$i+1
     }
     Write-Host "Check if internet connection is working for $($rCloneEntry)..." -ForegroundColor White -BackgroundColor Blue
