@@ -22,7 +22,7 @@ function GitHubReleaseDownload {
     if($InstallationName.Length -eq 0) {
         $InstallationName=(Split-Path $RepoName -leaf)
     }
-    [string]$VersionJSONSuffix=""
+    [string]$VersionJSONSuffix="_$($InstallationName)"
     if($InstallPath -like "$($env:LOCALAPPDATA)\Microsoft\WindowsApps") {
         # Common folder - need to distinguish the version.json files between different apps.
         [string]$VersionJSONSuffix="_$($InstallationName)"

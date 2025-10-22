@@ -20,12 +20,13 @@ else {
 }
 # [version]$LastBuildVer=0.0.0.0
 if($OOBE) {
-    # Change computer name
-    if($env:computername -notlike "MACBOOKPRO") {
-        Rename-Computer -NewName "MACBOOKPRO"
-        . "$($PSScriptRoot)\Functions\BallonNotif.ps1"
-        BallonNotif "Need to restart computer to make sure the change of computer name takes effect."
-    }
+    # Change computer name - Comment out if not needed
+    # [string]$WishedComputerName="MACBOOKPRO"
+    # if($env:computername -notlike $WishedComputerName) {
+    #     Rename-Computer -NewName $WishedComputerName
+    #     . "$($PSScriptRoot)\Functions\BallonNotif.ps1"
+    #     BallonNotif "Need to restart computer to make sure the change of computer name takes effect."
+    # }
     # Run accompanying programs
     powershell.exe -File "$($PSScriptRoot)\InstallPrograms.ps1"
     powershell.exe -File "$($PSScriptRoot)\AppDataSymlink.ps1"
